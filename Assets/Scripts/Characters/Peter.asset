@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cc5694ebbd3cadb4183435b022b8928e, type: 3}
+  m_Name: Peter
+  m_EditorClassIdentifier: 
+  characterName: Peter
+  characterSprite: {fileID: 21300000, guid: 438b9f9799d1b7849a4c308753990ecb, type: 3}
+  isMale: 1
+  hasDarkSkin: 0
+  hairColor: 0
+  hasHat: 0
+  hasBeard: 1
+  hasMustache: 1
+  hasGlasses: 0
+  hasEarrings: 0
