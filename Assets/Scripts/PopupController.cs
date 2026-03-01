@@ -17,8 +17,6 @@ public class PopupController : MonoBehaviour
     [SerializeField] private Image characterImage;
     [SerializeField] private Button okayButton;
     [SerializeField] private Button negateButton;
-    [SerializeField] private TMP_Text okayButtonText;
-    [SerializeField] private TMP_Text negateButtonText;
 
     [Header("Optional")]
     [SerializeField] private GameObject buttonsContainer;
@@ -96,7 +94,6 @@ public class PopupController : MonoBehaviour
         SetInfoText(message);
         SetCharacterImage(null);
         SetButtons(showOkay: true, showNegate: false);
-        okayButtonText.text = "Okay";
         Show();
     }
 
@@ -109,7 +106,6 @@ public class PopupController : MonoBehaviour
         SetInfoText("Select a Character");
         SetCharacterImage(null);
         SetButtons(showOkay: true, showNegate: false);
-        okayButtonText.text = "Okay";
         Show();
     }
 
@@ -123,8 +119,6 @@ public class PopupController : MonoBehaviour
         SetInfoText("Is that correct?");
         SetCharacterImage(character?.characterSprite);
         SetButtons(showOkay: true, showNegate: true);
-        okayButtonText.text = "Yes";
-        negateButtonText.text = "No";
         Show();
     }
 
@@ -137,7 +131,6 @@ public class PopupController : MonoBehaviour
         SetInfoText("Select a Question to ask!");
         SetCharacterImage(null);
         SetButtons(showOkay: true, showNegate: false);
-        okayButtonText.text = "Okay";
         Show();
     }
 
@@ -162,7 +155,6 @@ public class PopupController : MonoBehaviour
         SetInfoText(answer ? "Yes!" : "No!");
         SetCharacterImage(null);
         SetButtons(showOkay: true, showNegate: false);
-        okayButtonText.text = "Okay";
         Show();
     }
 
@@ -180,8 +172,6 @@ public class PopupController : MonoBehaviour
         SetCharacterImage(null);
         SetButtons(showOkay: true, showNegate: true);
         
-        okayButtonText.text = "Yes";
-        negateButtonText.text = "No";
         
         // Only enable the correct answer button
         // The player must answer truthfully based on their character
@@ -198,8 +188,6 @@ public class PopupController : MonoBehaviour
         SetInfoText("Make your final guess?");
         SetCharacterImage(character?.characterSprite);
         SetButtons(showOkay: true, showNegate: true);
-        okayButtonText.text = "Confirm";
-        negateButtonText.text = "Cancel";
         Show();
     }
 
@@ -212,7 +200,6 @@ public class PopupController : MonoBehaviour
         SetInfoText(playerWon ? "You Win!" : "AI Wins!");
         SetCharacterImage(aiCharacter?.characterSprite);
         SetButtons(showOkay: true, showNegate: false);
-        okayButtonText.text = "Play Again";
         Show();
     }
 
