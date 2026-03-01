@@ -1,76 +1,108 @@
+using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
+/// <summary>
+/// Represents a single character cell in the grid.
+/// </summary>
 public class Cell : MonoBehaviour
 {
-    [SerializeField] TMP_Text nameText;
-    [SerializeField] Image characterImage;
-    [SerializeField] Image hintHat, hintGlasses, hintBeard, hintMustache, hintEarrings;
-    [SerializeField] GameObject crossOutImage;
-    SCR_Character character;
-    Button cellButton;
+    [Header("UI References")]
+    [SerializeField] private TMP_Text nameText;
+    [SerializeField] private Image characterImage;
+    [SerializeField] private Image hintHat;
+    [SerializeField] private Image hintGlasses;
+    [SerializeField] private Image hintBeard;
+    [SerializeField] private Image hintMustache;
+    [SerializeField] private Image hintEarrings;
+    [SerializeField] private GameObject crossOutImage;
+    [SerializeField] private Button cellButton;
+
+    [Header("Visual Settings")]
+    [SerializeField] private Color eliminatedColor = new Color(0.5f, 0.5f, 0.5f, 0.7f);
+    [SerializeField] private Color normalColor = Color.white;
+    [SerializeField] private float hintAlphaActive = 1f;
+    [SerializeField] private float hintAlphaInactive = 0.3f;
+
+    private SCR_Character character;
+    private bool isEliminated;
+
+    public SCR_Character Character => character;
+    public bool IsEliminated => isEliminated;
+
+    private void Awake()
+    {
+        if (cellButton == null) cellButton = GetComponent<Button>();
+        if (cellButton != null)
+        {
+            cellButton.onClick.AddListener(OnClick);
+        }
+    }
 
     public void SetCell(SCR_Character _character)
     {
-        cellButton = GetComponent<Button>();
-
         character = _character;
 
-        nameText.text = character.name;
-        characterImage.sprite = character.characterSprite;
-        //DECIDE WHAT YOU WANT
-        // hintHat.gameObject.SetActive(character.hasHat);
-        // hintGlasses.gameObject.SetActive(character.hasGlasses);
-        // hintBeard.gameObject.SetActive(character.hasBeard);
-        // hintMustache.gameObject.SetActive(character.hasMustache);
-        // hintEarrings.gameObject.SetActive(character.hasEarrings);
+        if (nameText != null)
+            nameText.text = character.characterName;
 
-        // BASED ON COLOR
-        //Hat
-        Color hatColor = hintHat.color;
-        hatColor.a = character.hasHat ? 1 : 0.5f;
-        hintHat.color = hatColor;
+        if (characterImage != null)
+            characterImage.sprite = character.characterSprite;
 
-        //Glasses
-        Color glassesColor = hintGlasses.color;
-        glassesColor.a = character.hasGlasses ? 1 : 0.5f;
-        hintGlasses.color = glassesColor;
-
-        //Beard
-        Color beardColor = hintBeard.color;
-        beardColor.a = character.hasBeard ? 1 : 0.5f;
-        hintBeard.color = beardColor;
-
-        //Mustache
-        Color mustacheColor = hintMustache.color;
-        mustacheColor.a = character.hasMustache ? 1 : 0.5f;
-        hintMustache.color = mustacheColor;
-
-        //Earrings
-        Color earringsColor = hintEarrings.color;
-        earringsColor.a = character.hasEarrings ? 1 : 0.5f;
-        hintEarrings.color = earringsColor;
-
-        MarkThisCharacter(false);  // Set Crossmark False on Game Start
-
-        cellButton.onClick.AddListener(SelectCharacter);  // Calls SelectCharacter through AddListener on Click
+        UpdateHints();
+        MarkAsEliminated(false);
     }
 
-    public void MarkThisCharacter(bool mark)
+    private void UpdateHints()
     {
-        crossOutImage.SetActive(mark);
+        if (character == null) return;
+
+        SetHintAlpha(hintHat, character.hasHat);
+        SetHintAlpha(hintGlasses, character.hasGlasses);
+        SetHintAlpha(hintBeard, character.hasBeard);
+        SetHintAlpha(hintMustache, character.hasMustache);
+        SetHintAlpha(hintEarrings, character.hasEarrings);
     }
 
-    void SelectCharacter()
+    private void SetHintAlpha(Image hint, bool active)
     {
-        if (GameManager.instance.GetGameState() == GameState.CharacterSelection)
+        if (hint == null) return;
+        Color c = hint.color;
+        c.a = active ? hintAlphaActive : hintAlphaInactive;
+        hint.color = c;
+    }
+
+    private void OnClick()
+    {
+        if (isEliminated) return;
+
+        GameState state = GameManager.Instance?.GetGameState() ?? GameState.CharacterSelection;
+
+        switch (state)
         {
-            GameManager.instance.SelectPlayerCharacter(character);
-        }
-        // LATER DO SOMETHING ELSE 
+            case GameState.CharacterSelection:
+                GameManager.Instance?.OnCharacterSelected(character);
+                break;
 
+            case GameState.PlayerTurn:
+                // For guessing
+                GameManager.Instance?.OnCellClickedForGuess(character);
+                break;
+        }
     }
 
+    public void MarkAsEliminated(bool eliminated)
+    {
+        isEliminated = eliminated;
 
+        if (crossOutImage != null)
+            crossOutImage.SetActive(eliminated);
+
+        if (characterImage != null)
+            characterImage.color = eliminated ? eliminatedColor : normalColor;
+
+        if (cellButton != null)
+            cellButton.interactable = !eliminated;
+    }
 }

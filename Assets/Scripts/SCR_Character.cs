@@ -1,5 +1,8 @@
 using UnityEngine;
 
+/// <summary>
+/// ScriptableObject for character data.
+/// </summary>
 [CreateAssetMenu(fileName = "New Character", menuName = "Guess Who/Character")]
 public class SCR_Character : ScriptableObject
 {
