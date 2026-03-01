@@ -26,23 +26,18 @@ public class PopupController : MonoBehaviour
     private PopupType currentType;
     private SCR_Character currentCharacter;
     private SCR_Question currentQuestion;
-    private bool correctAnswer; // For AI questions
+    private bool correctAnswerIsYes; // For AI questions - which button is correct
+    private bool lastAIAnswer; // Store the last AI answer for player's question
 
     // Events
     public event Action OnOkayClicked;
     public event Action OnNegateClicked;
-    public event Action<bool> OnAnswerClicked; // For Yes/No answers
+    public event Action<bool> OnAnswerClicked; // For Yes/No answers (AI questions)
 
     private void Awake()
     {
-        if (Instance == null)
-        {
-            Instance = this;
-        }
-        else
-        {
-            Destroy(gameObject);
-        }
+        if (Instance == null) Instance = this;
+        else { Destroy(gameObject); return; }
 
         SetupButtons();
         Hide();
@@ -56,7 +51,7 @@ public class PopupController : MonoBehaviour
             {
                 if (currentType == PopupType.AIQuestion)
                 {
-                    // During AI question, okay = Yes
+                    // Player clicked Yes on AI question
                     OnAnswerClicked?.Invoke(true);
                 }
                 else
@@ -72,7 +67,7 @@ public class PopupController : MonoBehaviour
             {
                 if (currentType == PopupType.AIQuestion)
                 {
-                    // During AI question, negate = No
+                    // Player clicked No on AI question
                     OnAnswerClicked?.Invoke(false);
                 }
                 else
@@ -93,7 +88,7 @@ public class PopupController : MonoBehaviour
         currentType = PopupType.Message;
         SetInfoText(message);
         SetCharacterImage(null);
-        SetButtons(showOkay: true, showNegate: false);
+        SetButtons(showOkay: true, showNegate: false, bothInteractable: true);
         Show();
     }
 
@@ -105,7 +100,7 @@ public class PopupController : MonoBehaviour
         currentType = PopupType.CharacterSelect;
         SetInfoText("Select a Character");
         SetCharacterImage(null);
-        SetButtons(showOkay: true, showNegate: false);
+        SetButtons(showOkay: true, showNegate: false, bothInteractable: true);
         Show();
     }
 
@@ -118,7 +113,7 @@ public class PopupController : MonoBehaviour
         currentCharacter = character;
         SetInfoText("Is that correct?");
         SetCharacterImage(character?.characterSprite);
-        SetButtons(showOkay: true, showNegate: true);
+        SetButtons(showOkay: true, showNegate: true, bothInteractable: true);
         Show();
     }
 
@@ -130,7 +125,7 @@ public class PopupController : MonoBehaviour
         currentType = PopupType.QuestionSelect;
         SetInfoText("Select a Question to ask!");
         SetCharacterImage(null);
-        SetButtons(showOkay: true, showNegate: false);
+        SetButtons(showOkay: true, showNegate: false, bothInteractable: true);
         Show();
     }
 
@@ -142,7 +137,7 @@ public class PopupController : MonoBehaviour
         currentType = PopupType.AIThinking;
         SetInfoText("AI is thinking...");
         SetCharacterImage(null);
-        SetButtons(showOkay: false, showNegate: false);
+        SetButtons(showOkay: false, showNegate: false, bothInteractable: true);
         Show();
     }
 
@@ -152,29 +147,31 @@ public class PopupController : MonoBehaviour
     public void ShowAIAnswer(bool answer)
     {
         currentType = PopupType.AIAnswer;
+        lastAIAnswer = answer; // Store for later retrieval
         SetInfoText(answer ? "Yes!" : "No!");
         SetCharacterImage(null);
-        SetButtons(showOkay: true, showNegate: false);
+        SetButtons(showOkay: true, showNegate: false, bothInteractable: true);
         Show();
     }
 
     /// <summary>
-    /// Shows AI's question for player to answer
-    /// Only the correct answer button will be interactable
+    /// Shows AI's question for player to answer.
+    /// Only the CORRECT answer button will be interactable.
     /// </summary>
+    /// <param name="question">The question AI is asking</param>
+    /// <param name="correctIsYes">True if "Yes" is the correct answer</param>
     public void ShowAIQuestion(SCR_Question question, bool correctIsYes)
     {
         currentType = PopupType.AIQuestion;
         currentQuestion = question;
-        correctAnswer = correctIsYes;
-        
+        correctAnswerIsYes = correctIsYes;
+
         SetInfoText($"AI asks:\n{question.QuestionText}");
         SetCharacterImage(null);
-        SetButtons(showOkay: true, showNegate: true);
-        
-        
-        // Only enable the correct answer button
-        // The player must answer truthfully based on their character
+
+        // Show both buttons, but only the correct one is interactable
+        SetButtons(showOkay: true, showNegate: true, bothInteractable: false, correctIsYes: correctIsYes);
+
         Show();
     }
 
@@ -187,7 +184,7 @@ public class PopupController : MonoBehaviour
         currentCharacter = character;
         SetInfoText("Make your final guess?");
         SetCharacterImage(character?.characterSprite);
-        SetButtons(showOkay: true, showNegate: true);
+        SetButtons(showOkay: true, showNegate: true, bothInteractable: true);
         Show();
     }
 
@@ -199,7 +196,7 @@ public class PopupController : MonoBehaviour
         currentType = PopupType.GameOver;
         SetInfoText(playerWon ? "You Win!" : "AI Wins!");
         SetCharacterImage(aiCharacter?.characterSprite);
-        SetButtons(showOkay: true, showNegate: false);
+        SetButtons(showOkay: true, showNegate: false, bothInteractable: true);
         Show();
     }
 
@@ -210,64 +207,59 @@ public class PopupController : MonoBehaviour
     private void Show()
     {
         if (popupPanel != null)
-        {
             popupPanel.SetActive(true);
-        }
         else
-        {
             gameObject.SetActive(true);
-        }
     }
 
     public void Hide()
     {
         if (popupPanel != null)
-        {
             popupPanel.SetActive(false);
-        }
         else
-        {
             gameObject.SetActive(false);
-        }
     }
 
     private void SetInfoText(string text)
     {
         if (infoText != null)
-        {
             infoText.text = text;
-        }
     }
 
     private void SetCharacterImage(Sprite sprite)
     {
         if (characterImageContainer != null)
-        {
             characterImageContainer.SetActive(sprite != null);
-        }
-        
+
         if (characterImage != null && sprite != null)
-        {
             characterImage.sprite = sprite;
-        }
     }
 
-    private void SetButtons(bool showOkay, bool showNegate)
+    /// <summary>
+    /// Sets button visibility and interactability.
+    /// </summary>
+    /// <param name="showOkay">Show okay button</param>
+    /// <param name="showNegate">Show negate button</param>
+    /// <param name="bothInteractable">If true, both buttons work. If false, use correctIsYes.</param>
+    /// <param name="correctIsYes">When bothInteractable is false, true means Yes is correct, false means No is correct.</param>
+    private void SetButtons(bool showOkay, bool showNegate, bool bothInteractable, bool correctIsYes = true)
     {
         if (okayButton != null)
         {
             okayButton.gameObject.SetActive(showOkay);
+            // If bothInteractable is true, button works. Otherwise, only if correctIsYes is true.
+            okayButton.interactable = bothInteractable || correctIsYes;
         }
-        
+
         if (negateButton != null)
         {
             negateButton.gameObject.SetActive(showNegate);
+            // If bothInteractable is true, button works. Otherwise, only if correctIsYes is false.
+            negateButton.interactable = bothInteractable || !correctIsYes;
         }
 
         if (buttonsContainer != null)
-        {
             buttonsContainer.SetActive(showOkay || showNegate);
-        }
     }
 
     #endregion
@@ -292,6 +284,14 @@ public class PopupController : MonoBehaviour
     public SCR_Question GetCurrentQuestion()
     {
         return currentQuestion;
+    }
+
+    /// <summary>
+    /// Gets the last AI answer (Yes/No) for player's question.
+    /// </summary>
+    public bool GetLastAnswer()
+    {
+        return lastAIAnswer;
     }
 
     #endregion

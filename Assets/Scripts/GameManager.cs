@@ -1,11 +1,17 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Simplified GameManager that handles all game flow through a single popup system.
+/// GameManager controls the Guess Who game flow.
+/// 
+/// FLOW:
+/// 1. Character Selection (both player and AI pick characters)
+/// 2. Player Turn: Ask question → AI answers → Eliminate characters from player's grid
+/// 3. AI Turn: AI asks question → Player answers (must be correct) → AI updates knowledge
+/// 4. Repeat until someone guesses correctly
 /// </summary>
 public class GameManager : MonoBehaviour
 {
@@ -23,11 +29,11 @@ public class GameManager : MonoBehaviour
     [SerializeField] private QuestionBarController questionBar;
     [SerializeField] private Button doAGuessButton;
 
-    [Header("Selected Character Display")]
+    [Header("Player's Character Display")]
     [SerializeField] private Image selectedCharacterImage;
     [SerializeField] private TMP_Text selectedCharacterText;
 
-    [Header("AI Character Display")]
+    [Header("AI's Character Display")]
     [SerializeField] private Image aiCharacterImage;
     [SerializeField] private TMP_Text aiCharacterText;
 
@@ -130,7 +136,7 @@ public class GameManager : MonoBehaviour
     {
         aiSelectedCharacter = characterList[Random.Range(0, characterList.Count)];
         AIController.Instance?.Initialize(characterList, aiSelectedCharacter);
-        Debug.Log($"AI selected: {aiSelectedCharacter.characterName}");
+        Debug.Log($"[Game] AI selected: {aiSelectedCharacter.characterName}");
     }
 
     #endregion
@@ -139,62 +145,84 @@ public class GameManager : MonoBehaviour
 
     private void OnPopupOkay()
     {
-        switch (currentState)
+        PopupType popupType = popup.GetCurrentType();
+
+        switch (popupType)
         {
-            case GameState.CharacterSelection:
-                // User confirmed they want to select a character
-                // Close popup and let them click on grid
+            case PopupType.CharacterSelect:
+                // User acknowledged "Select a Character" - let them click grid
                 popup?.Hide();
                 break;
 
-            case GameState.CharacterAgree:
+            case PopupType.CharacterAgree:
                 // User confirmed their character selection
                 ConfirmCharacterSelection();
                 break;
 
-            case GameState.PlayerTurn:
-                // After seeing AI answer
+            case PopupType.QuestionSelect:
+                // User acknowledged "Select a Question" - show question bar
                 popup?.Hide();
+                EnableQuestionBar();
+                break;
+
+            case PopupType.AIAnswer:
+                // User acknowledged AI's answer to their question
+                popup?.Hide();
+                EliminateCharactersFromAnswer();
                 StartAITurn();
                 break;
 
-            case GameState.GuessConfirm:
+            case PopupType.GuessConfirm:
                 // User confirmed their guess
                 ProcessPlayerGuess(popup.GetCurrentCharacter());
                 break;
 
-            case GameState.GameOver:
+            case PopupType.GameOver:
                 // Play again
                 RestartGame();
+                break;
+
+            case PopupType.Message:
+                // Generic message closed
+                popup?.Hide();
+                // If we were in guess mode, re-enable question bar
+                if (currentState == GameState.PlayerTurn)
+                {
+                    EnableQuestionBar();
+                }
                 break;
         }
     }
 
     private void OnPopupNegate()
     {
-        switch (currentState)
+        PopupType popupType = popup.GetCurrentType();
+
+        switch (popupType)
         {
-            case GameState.CharacterAgree:
+            case PopupType.CharacterAgree:
                 // User wants to select a different character
                 popup?.Hide();
                 currentState = GameState.CharacterSelection;
                 break;
 
-            case GameState.GuessConfirm:
+            case PopupType.GuessConfirm:
                 // User cancelled guess
                 popup?.Hide();
-                currentState = GameState.PlayerTurn;
+                EnableQuestionBar();
                 break;
         }
     }
 
     private void OnPopupAnswer(bool answer)
     {
-        // Player answered AI's question
+        // Player answered AI's question (clicked Yes or No)
         if (currentState == GameState.AIQuestion)
         {
             popup?.Hide();
+            // Update AI's knowledge of possible player characters
             AIController.Instance?.ProcessPlayerAnswer(currentQuestion, answer);
+            // Back to player's turn
             StartPlayerTurn();
         }
     }
@@ -216,7 +244,7 @@ public class GameManager : MonoBehaviour
     {
         popup?.Hide();
 
-        // Update player character display
+        // Update player's character display
         if (selectedCharacterImage != null)
         {
             selectedCharacterImage.sprite = playerSelectedCharacter.characterSprite;
@@ -227,7 +255,7 @@ public class GameManager : MonoBehaviour
             selectedCharacterText.text = playerSelectedCharacter.characterName;
         }
 
-        // Start player turn
+        // Start player's turn
         StartPlayerTurn();
     }
 
@@ -238,15 +266,11 @@ public class GameManager : MonoBehaviour
     private void StartPlayerTurn()
     {
         currentState = GameState.PlayerTurn;
-
-        // Show question select popup first
         popup?.ShowQuestionSelect();
     }
 
-    private void OnPopupOkay_PlayerTurn()
+    private void EnableQuestionBar()
     {
-        popup?.Hide();
-
         // Enable question bar
         questionBar?.SetVisible(true);
         questionBar?.SetActive(true);
@@ -254,6 +278,12 @@ public class GameManager : MonoBehaviour
 
         // Show guess button
         if (doAGuessButton != null) doAGuessButton.gameObject.SetActive(true);
+    }
+
+    private void DisableQuestionBar()
+    {
+        questionBar?.SetActive(false);
+        if (doAGuessButton != null) doAGuessButton.gameObject.SetActive(false);
     }
 
     private void OnQuestionSent(SCR_Question question)
@@ -267,34 +297,54 @@ public class GameManager : MonoBehaviour
     private IEnumerator ProcessPlayerQuestion()
     {
         // Disable controls
-        questionBar?.SetActive(false);
-        if (doAGuessButton != null) doAGuessButton.gameObject.SetActive(false);
+        DisableQuestionBar();
 
         // Show thinking
         popup?.ShowAIThinking();
         yield return new WaitForSeconds(1f);
 
-        // Get and show answer
+        // Get answer (does AI's character match the question?)
         bool answer = currentQuestion.MatchesCharacter(aiSelectedCharacter);
+
+        // Show answer
         popup?.ShowAIAnswer(answer);
+        // User will click Okay, then OnPopupOkay will handle elimination and AI turn
+    }
 
-        // Wait for popup to be closed (user clicks okay)
-        yield return new WaitUntil(() => !popup.IsVisible());
+    private void EliminateCharactersFromAnswer()
+    {
+        if (currentQuestion == null) return;
 
-        // Eliminate characters
-        EliminateCharacters(currentQuestion, answer);
+        // Get the answer from the popup
+        bool answerIsYes = popup.GetLastAnswer();
 
-        // Start AI turn
-        StartAITurn();
+        // Eliminate characters from player's grid
+        var toEliminate = CharacterFilter.GetCharactersToEliminate(
+            playerRemainingCharacters, currentQuestion, answerIsYes);
+
+        foreach (var cell in allCells)
+        {
+            if (toEliminate.Contains(cell.Character))
+            {
+                cell.MarkAsEliminated(true);
+            }
+        }
+
+        playerRemainingCharacters = CharacterFilter.GetRemainingCharacters(
+            playerRemainingCharacters, currentQuestion, answerIsYes);
+
+        Debug.Log($"[Game] {playerRemainingCharacters.Count} characters remaining for player");
+
+        // Check if only one remains (hint for player)
+        if (playerRemainingCharacters.Count == 1)
+        {
+            Debug.Log($"[Game] Only {playerRemainingCharacters[0].characterName} remains!");
+        }
     }
 
     private void OnDoAGuessPressed()
     {
-        // Disable controls
-        questionBar?.SetActive(false);
-        if (doAGuessButton != null) doAGuessButton.gameObject.SetActive(false);
-
-        // Show guess mode - clicking on cells will trigger guess
+        DisableQuestionBar();
         popup?.ShowMessage("Click on a character to make your guess!");
     }
 
@@ -326,13 +376,9 @@ public class GameManager : MonoBehaviour
         yield return new WaitForSeconds(2f);
 
         if (isCorrect)
-        {
             PlayerWins();
-        }
         else
-        {
             PlayerLoses();
-        }
     }
 
     #endregion
@@ -360,16 +406,27 @@ public class GameManager : MonoBehaviour
         }
         else
         {
-            // AI asks question
+            // AI asks a question
             SCR_Question aiQuestion = AIController.Instance?.SelectQuestion();
             if (aiQuestion != null)
             {
                 currentQuestion = aiQuestion;
                 currentState = GameState.AIQuestion;
 
-                // Show AI question
+                // Calculate the correct answer based on player's character
                 bool correctIsYes = aiQuestion.MatchesCharacter(playerSelectedCharacter);
+
+                // Show AI question - only the correct answer will be interactable
                 popup?.ShowAIQuestion(aiQuestion, correctIsYes);
+            }
+            else
+            {
+                // No questions left, AI must guess
+                SCR_Character guess = AIController.Instance?.GetMostLikelyCharacter();
+                if (guess != null)
+                    ProcessAIGuess(guess);
+                else
+                    StartPlayerTurn(); // Fallback
             }
         }
     }
@@ -380,7 +437,7 @@ public class GameManager : MonoBehaviour
 
         if (isCorrect)
         {
-            popup?.ShowMessage($"AI guessed: {guessedCharacter.characterName}\nAI Wins!");
+            popup?.ShowMessage($"AI guessed: {guessedCharacter.characterName}\n\nAI Wins!");
             Invoke(nameof(PlayerLoses), 2f);
         }
         else
@@ -388,26 +445,6 @@ public class GameManager : MonoBehaviour
             popup?.ShowMessage($"AI guessed wrong: {guessedCharacter.characterName}");
             Invoke(nameof(StartPlayerTurn), 2f);
         }
-    }
-
-    #endregion
-
-    #region Character Elimination
-
-    private void EliminateCharacters(SCR_Question question, bool answerIsYes)
-    {
-        var toEliminate = CharacterFilter.GetCharactersToEliminate(playerRemainingCharacters, question, answerIsYes);
-
-        foreach (var cell in allCells)
-        {
-            if (toEliminate.Contains(cell.Character))
-            {
-                cell.MarkAsEliminated(true);
-            }
-        }
-
-        playerRemainingCharacters = CharacterFilter.GetRemainingCharacters(playerRemainingCharacters, question, answerIsYes);
-        Debug.Log($"{playerRemainingCharacters.Count} characters remaining");
     }
 
     #endregion
@@ -452,9 +489,7 @@ public class GameManager : MonoBehaviour
 
         // Reset cells
         foreach (var cell in allCells)
-        {
             cell.MarkAsEliminated(false);
-        }
 
         // Reset managers
         QuestionManager.Instance?.ClearAskedHistory();
