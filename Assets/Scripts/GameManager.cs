@@ -6,12 +6,6 @@ using UnityEngine.UI;
 
 /// <summary>
 /// GameManager controls the Guess Who game flow.
-/// 
-/// FLOW:
-/// 1. Character Selection (both player and AI pick characters)
-/// 2. Player Turn: Ask question → AI answers → Eliminate characters from player's grid
-/// 3. AI Turn: AI asks question → Player answers (must be correct) → AI updates knowledge
-/// 4. Repeat until someone guesses correctly
 /// </summary>
 public class GameManager : MonoBehaviour
 {
@@ -19,8 +13,10 @@ public class GameManager : MonoBehaviour
 
     [Header("Character Data")]
     [SerializeField] private List<SCR_Character> characterList = new List<SCR_Character>();
-    [SerializeField] private Transform grid;
-    [SerializeField] private GameObject cellPrefab;
+    [SerializeField] private Transform playerGrid;
+    [SerializeField] private Transform aiGrid; // Mini grid for AI
+    [SerializeField] private GameObject playerCellPrefab;
+    [SerializeField] private GameObject aiCellPrefab;
 
     [Header("Popup")]
     [SerializeField] private PopupController popup;
@@ -41,9 +37,11 @@ public class GameManager : MonoBehaviour
     private GameState currentState;
     private SCR_Character playerSelectedCharacter;
     private SCR_Character aiSelectedCharacter;
-    private List<Cell> allCells = new List<Cell>();
+    private List<Cell> playerCells = new List<Cell>();
+    private List<AICell> aiCells = new List<AICell>(); // AI's mini grid cells
     private List<SCR_Character> playerRemainingCharacters = new List<SCR_Character>();
     private SCR_Question currentQuestion;
+    private bool isInGuessMode = false; // Track if player is in guess mode
 
     #region Unity Lifecycle
 
@@ -69,8 +67,7 @@ public class GameManager : MonoBehaviour
     {
         selectedCharacterImage?.gameObject.SetActive(false);
         aiCharacterImage?.gameObject.SetActive(false);
-        questionBar?.SetVisible(false);
-        if (doAGuessButton != null) doAGuessButton.gameObject.SetActive(false);
+        DisableQuestionBar();
     }
 
     private void SetupEventListeners()
@@ -103,9 +100,11 @@ public class GameManager : MonoBehaviour
         playerSelectedCharacter = null;
         aiSelectedCharacter = null;
         currentQuestion = null;
+        isInGuessMode = false;
 
-        // Fill grid
-        FillGrid();
+        // Fill grids
+        FillPlayerGrid();
+        FillAIGrid();
 
         // Select AI character
         SelectAICharacter();
@@ -115,19 +114,38 @@ public class GameManager : MonoBehaviour
         popup?.ShowCharacterSelect();
     }
 
-    private void FillGrid()
+    private void FillPlayerGrid()
     {
-        allCells.Clear();
-        foreach (Transform child in grid) Destroy(child.gameObject);
+        playerCells.Clear();
+        foreach (Transform child in playerGrid) Destroy(child.gameObject);
 
         for (int i = 0; i < characterList.Count; i++)
         {
-            GameObject cellObj = Instantiate(cellPrefab, grid, false);
+            GameObject cellObj = Instantiate(playerCellPrefab, playerGrid, false);
             Cell cell = cellObj.GetComponent<Cell>();
             if (cell != null)
             {
                 cell.SetCell(characterList[i]);
-                allCells.Add(cell);
+                playerCells.Add(cell);
+            }
+        }
+    }
+
+    private void FillAIGrid()
+    {
+        if (aiGrid == null || aiCellPrefab == null) return;
+
+        aiCells.Clear();
+        foreach (Transform child in aiGrid) Destroy(child.gameObject);
+
+        for (int i = 0; i < characterList.Count; i++)
+        {
+            GameObject cellObj = Instantiate(aiCellPrefab, aiGrid, false);
+            AICell cell = cellObj.GetComponent<AICell>();
+            if (cell != null)
+            {
+                cell.SetCell(characterList[i]);
+                aiCells.Add(cell);
             }
         }
     }
@@ -150,43 +168,37 @@ public class GameManager : MonoBehaviour
         switch (popupType)
         {
             case PopupType.CharacterSelect:
-                // User acknowledged "Select a Character" - let them click grid
                 popup?.Hide();
                 break;
 
             case PopupType.CharacterAgree:
-                // User confirmed their character selection
                 ConfirmCharacterSelection();
                 break;
 
             case PopupType.QuestionSelect:
-                // User acknowledged "Select a Question" - show question bar
                 popup?.Hide();
                 EnableQuestionBar();
                 break;
 
             case PopupType.AIAnswer:
-                // User acknowledged AI's answer to their question
                 popup?.Hide();
                 EliminateCharactersFromAnswer();
                 StartAITurn();
                 break;
 
             case PopupType.GuessConfirm:
-                // User confirmed their guess
                 ProcessPlayerGuess(popup.GetCurrentCharacter());
                 break;
 
             case PopupType.GameOver:
-                // Play again
                 RestartGame();
                 break;
 
             case PopupType.Message:
-                // Generic message closed
                 popup?.Hide();
-                // If we were in guess mode, re-enable question bar
-                if (currentState == GameState.PlayerTurn)
+                // If we're in guess mode, DON'T reset it - let player click a character
+                // Only re-enable controls if NOT in guess mode
+                if (currentState == GameState.PlayerTurn && !isInGuessMode)
                 {
                     EnableQuestionBar();
                 }
@@ -201,14 +213,14 @@ public class GameManager : MonoBehaviour
         switch (popupType)
         {
             case PopupType.CharacterAgree:
-                // User wants to select a different character
                 popup?.Hide();
                 currentState = GameState.CharacterSelection;
                 break;
 
             case PopupType.GuessConfirm:
-                // User cancelled guess
+                // User cancelled guess - go back to normal player turn
                 popup?.Hide();
+                isInGuessMode = false;
                 EnableQuestionBar();
                 break;
         }
@@ -216,13 +228,15 @@ public class GameManager : MonoBehaviour
 
     private void OnPopupAnswer(bool answer)
     {
-        // Player answered AI's question (clicked Yes or No)
         if (currentState == GameState.AIQuestion)
         {
             popup?.Hide();
-            // Update AI's knowledge of possible player characters
+            // Mark question as asked for AI
+            QuestionManager.Instance?.MarkQuestionAsAskedAI(currentQuestion);
+            // Update AI's knowledge
             AIController.Instance?.ProcessPlayerAnswer(currentQuestion, answer);
-            // Back to player's turn
+            // Update AI's mini grid
+            EliminateCharactersForAI(currentQuestion, answer);
             StartPlayerTurn();
         }
     }
@@ -244,7 +258,6 @@ public class GameManager : MonoBehaviour
     {
         popup?.Hide();
 
-        // Update player's character display
         if (selectedCharacterImage != null)
         {
             selectedCharacterImage.sprite = playerSelectedCharacter.characterSprite;
@@ -255,8 +268,28 @@ public class GameManager : MonoBehaviour
             selectedCharacterText.text = playerSelectedCharacter.characterName;
         }
 
-        // Start player's turn
         StartPlayerTurn();
+    }
+
+    #endregion
+
+    #region Cell Click Handler
+
+    /// <summary>
+    /// Called when a cell is clicked. Behavior depends on current state.
+    /// </summary>
+    public void OnCellClicked(SCR_Character character)
+    {
+        if (currentState == GameState.CharacterSelection)
+        {
+            OnCharacterSelected(character);
+        }
+        else if (currentState == GameState.PlayerTurn && isInGuessMode)
+        {
+            // Only allow guess confirmation if in guess mode
+            currentState = GameState.GuessConfirm;
+            popup?.ShowGuessConfirm(character);
+        }
     }
 
     #endregion
@@ -266,24 +299,25 @@ public class GameManager : MonoBehaviour
     private void StartPlayerTurn()
     {
         currentState = GameState.PlayerTurn;
+        isInGuessMode = false;
         popup?.ShowQuestionSelect();
     }
 
     private void EnableQuestionBar()
     {
-        // Enable question bar
         questionBar?.SetVisible(true);
         questionBar?.SetActive(true);
         questionBar?.UpdateDisplay();
 
-        // Show guess button
-        if (doAGuessButton != null) doAGuessButton.gameObject.SetActive(true);
+        if (doAGuessButton != null)
+            doAGuessButton.interactable = true;
     }
 
     private void DisableQuestionBar()
     {
         questionBar?.SetActive(false);
-        if (doAGuessButton != null) doAGuessButton.gameObject.SetActive(false);
+        if (doAGuessButton != null)
+            doAGuessButton.interactable = false;
     }
 
     private void OnQuestionSent(SCR_Question question)
@@ -291,38 +325,33 @@ public class GameManager : MonoBehaviour
         if (currentState != GameState.PlayerTurn) return;
 
         currentQuestion = question;
+        // Mark as asked by player
+        QuestionManager.Instance?.MarkQuestionAsAsked(question);
         StartCoroutine(ProcessPlayerQuestion());
     }
 
     private IEnumerator ProcessPlayerQuestion()
     {
-        // Disable controls
         DisableQuestionBar();
+        isInGuessMode = false;
 
-        // Show thinking
         popup?.ShowAIThinking();
         yield return new WaitForSeconds(1f);
 
-        // Get answer (does AI's character match the question?)
         bool answer = currentQuestion.MatchesCharacter(aiSelectedCharacter);
-
-        // Show answer
         popup?.ShowAIAnswer(answer);
-        // User will click Okay, then OnPopupOkay will handle elimination and AI turn
     }
 
     private void EliminateCharactersFromAnswer()
     {
         if (currentQuestion == null) return;
 
-        // Get the answer from the popup
         bool answerIsYes = popup.GetLastAnswer();
 
-        // Eliminate characters from player's grid
         var toEliminate = CharacterFilter.GetCharactersToEliminate(
             playerRemainingCharacters, currentQuestion, answerIsYes);
 
-        foreach (var cell in allCells)
+        foreach (var cell in playerCells)
         {
             if (toEliminate.Contains(cell.Character))
             {
@@ -335,7 +364,6 @@ public class GameManager : MonoBehaviour
 
         Debug.Log($"[Game] {playerRemainingCharacters.Count} characters remaining for player");
 
-        // Check if only one remains (hint for player)
         if (playerRemainingCharacters.Count == 1)
         {
             Debug.Log($"[Game] Only {playerRemainingCharacters[0].characterName} remains!");
@@ -344,17 +372,10 @@ public class GameManager : MonoBehaviour
 
     private void OnDoAGuessPressed()
     {
+        // Enter guess mode
+        isInGuessMode = true;
         DisableQuestionBar();
         popup?.ShowMessage("Click on a character to make your guess!");
-    }
-
-    public void OnCellClickedForGuess(SCR_Character character)
-    {
-        if (currentState == GameState.PlayerTurn)
-        {
-            currentState = GameState.GuessConfirm;
-            popup?.ShowGuessConfirm(character);
-        }
     }
 
     private void ProcessPlayerGuess(SCR_Character guessedCharacter)
@@ -365,10 +386,10 @@ public class GameManager : MonoBehaviour
     private IEnumerator ProcessGuessCoroutine(SCR_Character guessedCharacter)
     {
         popup?.Hide();
+        isInGuessMode = false;
 
         bool isCorrect = guessedCharacter == aiSelectedCharacter;
 
-        // Show result
         popup?.ShowMessage(isCorrect
             ? $"Correct! It was {guessedCharacter.characterName}!"
             : $"Wrong! It was {aiSelectedCharacter.characterName}!");
@@ -388,47 +409,67 @@ public class GameManager : MonoBehaviour
     private void StartAITurn()
     {
         currentState = GameState.AITurn;
+        isInGuessMode = false;
         StartCoroutine(AITurnCoroutine());
     }
 
     private IEnumerator AITurnCoroutine()
     {
-        // Show thinking
         popup?.ShowAIThinking();
         yield return new WaitForSeconds(1.5f);
 
-        // Check if AI should guess
         if (AIController.Instance?.RemainingPossibleCharacters == 1)
         {
-            // AI makes final guess
             SCR_Character guess = AIController.Instance.GetMostLikelyCharacter();
             ProcessAIGuess(guess);
         }
         else
         {
-            // AI asks a question
             SCR_Question aiQuestion = AIController.Instance?.SelectQuestion();
             if (aiQuestion != null)
             {
                 currentQuestion = aiQuestion;
                 currentState = GameState.AIQuestion;
 
-                // Calculate the correct answer based on player's character
                 bool correctIsYes = aiQuestion.MatchesCharacter(playerSelectedCharacter);
-
-                // Show AI question - only the correct answer will be interactable
                 popup?.ShowAIQuestion(aiQuestion, correctIsYes);
             }
             else
             {
-                // No questions left, AI must guess
                 SCR_Character guess = AIController.Instance?.GetMostLikelyCharacter();
                 if (guess != null)
                     ProcessAIGuess(guess);
                 else
-                    StartPlayerTurn(); // Fallback
+                    StartPlayerTurn();
             }
         }
+    }
+
+    private void EliminateCharactersForAI(SCR_Question question, bool answerIsYes)
+    {
+        if (aiCells.Count == 0) return;
+
+        // Get all characters that AI hasn't eliminated yet
+        var aiRemaining = new List<SCR_Character>(characterList);
+
+        // Remove already eliminated characters
+        foreach (var cell in aiCells)
+        {
+            if (cell.IsEliminated)
+                aiRemaining.Remove(cell.Character);
+        }
+
+        var toEliminate = CharacterFilter.GetCharactersToEliminate(aiRemaining, question, answerIsYes);
+
+        foreach (var cell in aiCells)
+        {
+            if (toEliminate.Contains(cell.Character))
+            {
+                cell.MarkAsEliminated(true);
+            }
+        }
+
+        Debug.Log($"[Game] AI eliminated {toEliminate.Count} characters from mini grid");
     }
 
     private void ProcessAIGuess(SCR_Character guessedCharacter)
@@ -487,13 +528,13 @@ public class GameManager : MonoBehaviour
         popup?.Hide();
         HideAllUI();
 
-        // Reset cells
-        foreach (var cell in allCells)
+        foreach (var cell in playerCells)
             cell.MarkAsEliminated(false);
 
-        // Reset managers
+        foreach (var cell in aiCells)
+            cell.MarkAsEliminated(false);
+
         QuestionManager.Instance?.ClearAskedHistory();
-        QuestionManager.Instance?.ResetToFirstQuestion();
         AIController.Instance?.ResetAI();
 
         StartGame();
@@ -504,6 +545,7 @@ public class GameManager : MonoBehaviour
     #region Public API
 
     public GameState GetGameState() => currentState;
+    public bool IsInGuessMode => isInGuessMode;
     public SCR_Character GetPlayerCharacter() => playerSelectedCharacter;
     public SCR_Character GetAICharacter() => aiSelectedCharacter;
 

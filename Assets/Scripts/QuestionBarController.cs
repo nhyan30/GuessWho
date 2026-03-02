@@ -4,6 +4,7 @@ using UnityEngine.UI;
 
 /// <summary>
 /// Controls the Question Bar UI with arrow navigation and send button.
+/// Only shows questions that haven't been asked by the player yet.
 /// </summary>
 public class QuestionBarController : MonoBehaviour
 {
@@ -49,9 +50,9 @@ public class QuestionBarController : MonoBehaviour
     {
         if (!isActive || currentQuestion == null) return;
 
-        QuestionManager.Instance?.MarkQuestionAsAsked(currentQuestion);
         OnQuestionSent?.Invoke(currentQuestion);
 
+        // Move to next question for next turn
         currentQuestion = QuestionManager.Instance?.GetNextQuestion();
         UpdateDisplay();
     }
@@ -64,9 +65,26 @@ public class QuestionBarController : MonoBehaviour
 
         if (questionText != null)
         {
-            questionText.text = currentQuestion != null
-                ? currentQuestion.QuestionText
-                : "No questions";
+            if (currentQuestion == null)
+            {
+                questionText.text = "No questions available";
+            }
+            else if (QuestionManager.Instance.WasAskedByPlayer(currentQuestion))
+            {
+                // This shouldn't happen, but handle it
+                questionText.text = "No more questions";
+            }
+            else
+            {
+                questionText.text = currentQuestion.QuestionText;
+            }
+        }
+
+        // Disable send button if no valid question
+        if (sendButton != null && isActive)
+        {
+            sendButton.interactable = currentQuestion != null &&
+                                      !QuestionManager.Instance.WasAskedByPlayer(currentQuestion);
         }
     }
 
@@ -76,7 +94,13 @@ public class QuestionBarController : MonoBehaviour
 
         if (leftArrowButton != null) leftArrowButton.interactable = active;
         if (rightArrowButton != null) rightArrowButton.interactable = active;
-        if (sendButton != null) sendButton.interactable = active;
+
+        if (sendButton != null)
+        {
+            bool hasQuestion = currentQuestion != null &&
+                              !QuestionManager.Instance?.WasAskedByPlayer(currentQuestion) == true;
+            sendButton.interactable = active && hasQuestion;
+        }
     }
 
     public void SetVisible(bool visible)

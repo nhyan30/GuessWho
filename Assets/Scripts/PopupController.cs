@@ -17,8 +17,6 @@ public class PopupController : MonoBehaviour
     [SerializeField] private Image characterImage;
     [SerializeField] private Button okayButton;
     [SerializeField] private Button negateButton;
-
-    [Header("Optional")]
     [SerializeField] private GameObject buttonsContainer;
     [SerializeField] private GameObject characterImageContainer;
 

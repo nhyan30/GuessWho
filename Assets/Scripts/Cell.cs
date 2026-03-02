@@ -25,11 +25,15 @@ public class Cell : MonoBehaviour
     [SerializeField] private float hintAlphaActive = 1f;
     [SerializeField] private float hintAlphaInactive = 0.3f;
 
+    [Header("Cell Type")]
+    [SerializeField] private bool isPlayerGrid = true; // True = player grid, False = AI grid
+
     private SCR_Character character;
     private bool isEliminated;
 
     public SCR_Character Character => character;
     public bool IsEliminated => isEliminated;
+    public bool IsPlayerGrid => isPlayerGrid;
 
     private void Awake()
     {
@@ -75,21 +79,11 @@ public class Cell : MonoBehaviour
 
     private void OnClick()
     {
+        // Only player grid cells can be clicked
+        if (!isPlayerGrid) return;
         if (isEliminated) return;
 
-        GameState state = GameManager.Instance?.GetGameState() ?? GameState.CharacterSelection;
-
-        switch (state)
-        {
-            case GameState.CharacterSelection:
-                GameManager.Instance?.OnCharacterSelected(character);
-                break;
-
-            case GameState.PlayerTurn:
-                // For guessing
-                GameManager.Instance?.OnCellClickedForGuess(character);
-                break;
-        }
+        GameManager.Instance?.OnCellClicked(character);
     }
 
     public void MarkAsEliminated(bool eliminated)
@@ -102,7 +96,8 @@ public class Cell : MonoBehaviour
         if (characterImage != null)
             characterImage.color = eliminated ? eliminatedColor : normalColor;
 
-        if (cellButton != null)
+        // Only player grid cells need button interaction
+        if (cellButton != null && isPlayerGrid)
             cellButton.interactable = !eliminated;
     }
 }

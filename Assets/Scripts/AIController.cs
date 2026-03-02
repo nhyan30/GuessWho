@@ -57,7 +57,7 @@ public class AIController : MonoBehaviour
 
     private SCR_Question SelectRandomQuestion()
     {
-        var unasked = QuestionManager.Instance.GetUnaskedQuestions();
+        var unasked = QuestionManager.Instance.GetUnaskedQuestionsAI();
         if (unasked.Count == 0) return null;
         return unasked[Random.Range(0, unasked.Count)];
     }
