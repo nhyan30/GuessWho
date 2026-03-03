@@ -3,8 +3,8 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Controls the Question Bar UI with arrow navigation and send button.
-/// Only shows questions that haven't been asked by the player yet.
+/// Controls the Question Bar UI at the bottom of the screen.
+/// Handles question display, navigation with arrows, and sending questions.
 /// </summary>
 public class QuestionBarController : MonoBehaviour
 {
@@ -13,100 +13,184 @@ public class QuestionBarController : MonoBehaviour
     [SerializeField] private Button leftArrowButton;
     [SerializeField] private Button rightArrowButton;
     [SerializeField] private Button sendButton;
+    [SerializeField] private TMP_Text sendButtonText;
+
+    [Header("Visual Settings")]
+    [SerializeField] private Color normalColor = Color.white;
+    [SerializeField] private Color disabledColor = Color.gray;
+    [SerializeField] private float animationSpeed = 0.2f;
+
+    [Header("Question Counter")]
+    [SerializeField] private TMP_Text questionCounterText;
+    [SerializeField] private bool showCounter = true;
 
     // Events
     public System.Action<SCR_Question> OnQuestionSent;
+    public System.Action<SCR_Question> OnQuestionChanged;
 
     private SCR_Question currentQuestion;
-    private bool isActive;
+    private bool isActive = true;
 
+    #region Unity Lifecycle
     private void Awake()
     {
+        SetupButtonListeners();
+    }
+
+    private void Start()
+    {
+        UpdateDisplay();
+    }
+    #endregion
+
+    #region Setup
+    private void SetupButtonListeners()
+    {
         if (leftArrowButton != null)
-            leftArrowButton.onClick.AddListener(OnLeftArrow);
+        {
+            leftArrowButton.onClick.RemoveAllListeners();
+            leftArrowButton.onClick.AddListener(OnLeftArrowClicked);
+        }
 
         if (rightArrowButton != null)
-            rightArrowButton.onClick.AddListener(OnRightArrow);
+        {
+            rightArrowButton.onClick.RemoveAllListeners();
+            rightArrowButton.onClick.AddListener(OnRightArrowClicked);
+        }
 
         if (sendButton != null)
-            sendButton.onClick.AddListener(OnSend);
+        {
+            sendButton.onClick.RemoveAllListeners();
+            sendButton.onClick.AddListener(OnSendButtonClicked);
+        }
     }
+    #endregion
 
-    private void OnLeftArrow()
+    #region Button Handlers
+    private void OnLeftArrowClicked()
     {
-        if (!isActive) return;
-        currentQuestion = QuestionManager.Instance?.GetPreviousQuestion();
+        if (!isActive || QuestionManager.Instance == null) return;
+
+        currentQuestion = QuestionManager.Instance.GetPreviousQuestion();
         UpdateDisplay();
+        OnQuestionChanged?.Invoke(currentQuestion);
+
+        // Optional: Add sound effect or animation
+        PlayNavigationFeedback();
     }
 
-    private void OnRightArrow()
+    private void OnRightArrowClicked()
     {
-        if (!isActive) return;
-        currentQuestion = QuestionManager.Instance?.GetNextQuestion();
+        if (!isActive || QuestionManager.Instance == null) return;
+
+        currentQuestion = QuestionManager.Instance.GetNextQuestion();
         UpdateDisplay();
+        OnQuestionChanged?.Invoke(currentQuestion);
+
+        // Optional: Add sound effect or animation
+        PlayNavigationFeedback();
     }
 
-    private void OnSend()
+    private void OnSendButtonClicked()
     {
         if (!isActive || currentQuestion == null) return;
 
+        // Mark question as asked
+        QuestionManager.Instance.MarkQuestionAsAsked(currentQuestion);
+
+        // Notify listeners (GameManager will handle the game logic)
         OnQuestionSent?.Invoke(currentQuestion);
 
-        // Move to next question for next turn
-        currentQuestion = QuestionManager.Instance?.GetNextQuestion();
+        // Move to next question for convenience
+        currentQuestion = QuestionManager.Instance.GetNextQuestion();
         UpdateDisplay();
     }
+    #endregion
 
+    #region Display Updates
+    /// <summary>
+    /// Updates the question display with the current question.
+    /// </summary>
     public void UpdateDisplay()
     {
         if (QuestionManager.Instance == null) return;
 
         currentQuestion = QuestionManager.Instance.CurrentQuestion;
 
+        // Update question text
         if (questionText != null)
         {
-            if (currentQuestion == null)
-            {
-                questionText.text = "No questions available";
-            }
-            else if (QuestionManager.Instance.WasAskedByPlayer(currentQuestion))
-            {
-                // This shouldn't happen, but handle it
-                questionText.text = "No more questions";
-            }
-            else
-            {
-                questionText.text = currentQuestion.QuestionText;
-            }
+            questionText.text = currentQuestion != null
+                ? currentQuestion.QuestionText
+                : "No questions available";
         }
 
-        // Disable send button if no valid question
-        if (sendButton != null && isActive)
+        // Update counter
+        if (showCounter && questionCounterText != null)
         {
-            sendButton.interactable = currentQuestion != null &&
-                                      !QuestionManager.Instance.WasAskedByPlayer(currentQuestion);
+            int current = QuestionManager.Instance.CurrentIndex + 1;
+            int total = QuestionManager.Instance.TotalQuestions;
+            questionCounterText.text = $"{current}/{total}";
         }
     }
 
+    /// <summary>
+    /// Sets whether the question bar is interactive.
+    /// </summary>
     public void SetActive(bool active)
     {
         isActive = active;
 
-        if (leftArrowButton != null) leftArrowButton.interactable = active;
-        if (rightArrowButton != null) rightArrowButton.interactable = active;
+        if (leftArrowButton != null)
+        {
+            leftArrowButton.interactable = active;
+        }
+
+        if (rightArrowButton != null)
+        {
+            rightArrowButton.interactable = active;
+        }
 
         if (sendButton != null)
         {
-            bool hasQuestion = currentQuestion != null &&
-                              !QuestionManager.Instance?.WasAskedByPlayer(currentQuestion) == true;
-            sendButton.interactable = active && hasQuestion;
+            sendButton.interactable = active;
         }
     }
 
+    /// <summary>
+    /// Shows or hides the question bar.
+    /// </summary>
     public void SetVisible(bool visible)
     {
         gameObject.SetActive(visible);
     }
+    #endregion
 
-    public SCR_Question GetCurrentQuestion() => currentQuestion;
+    #region Feedback
+    private void PlayNavigationFeedback()
+    {
+        // Placeholder for sound/animation feedback
+        // Add your own implementation:
+        // AudioManager.Instance?.PlayClickSound();
+    }
+    #endregion
+
+    #region Public API
+    /// <summary>
+    /// Gets the currently displayed question.
+    /// </summary>
+    public SCR_Question GetCurrentQuestion()
+    {
+        return currentQuestion;
+    }
+
+    /// <summary>
+    /// Manually sets a specific question to display.
+    /// </summary>
+    public void SetQuestion(SCR_Question question)
+    {
+        currentQuestion = question;
+        UpdateDisplay();
+    }
+    #endregion
 }

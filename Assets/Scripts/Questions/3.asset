@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cf21bacfd4586bf4bb3dd6335b4075a6, type: 3}
   m_Name: 3
   m_EditorClassIdentifier: 
-  questionText: Does your charcater have a beard?
-  category: 2
+  QuestionText: Does your character wear glasses?
+  Category: 1
   attributeToCheck: 3
   expectedValue: 1
   targetHairColor: 0

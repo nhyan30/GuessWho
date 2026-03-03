@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cf21bacfd4586bf4bb3dd6335b4075a6, type: 3}
   m_Name: 9
   m_EditorClassIdentifier: 
-  questionText: Does your charcater have black hair?
-  category: 0
+  QuestionText: Does your character have black hair?
+  Category: 3
   attributeToCheck: 7
   expectedValue: 1
   targetHairColor: 1

@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cf21bacfd4586bf4bb3dd6335b4075a6, type: 3}
   m_Name: 5
   m_EditorClassIdentifier: 
-  questionText: Does your charcater waer earrings?
-  category: 1
+  QuestionText: Does your character have a mustache?
+  Category: 2
   attributeToCheck: 6
   expectedValue: 1
   targetHairColor: 0

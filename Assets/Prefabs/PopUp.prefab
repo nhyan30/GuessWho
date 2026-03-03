@@ -815,10 +815,8 @@ MonoBehaviour:
   characterImage: {fileID: 951469305208618318}
   okayButton: {fileID: 339347789419997570}
   negateButton: {fileID: 6490009530820727108}
-  okayButtonText: {fileID: 0}
-  negateButtonText: {fileID: 0}
-  buttonsContainer: {fileID: 0}
-  characterImageContainer: {fileID: 0}
+  buttonsContainer: {fileID: 6767357504148054908}
+  characterImageContainer: {fileID: 9130601718070146682}
 --- !u!1 &9130601718070146682
 GameObject:
   m_ObjectHideFlags: 0

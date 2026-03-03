@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cf21bacfd4586bf4bb3dd6335b4075a6, type: 3}
   m_Name: 6
   m_EditorClassIdentifier: 
-  questionText: Does your charcater white skin?
-  category: 0
+  QuestionText: Is your character white skin?
+  Category: 4
   attributeToCheck: 1
   expectedValue: 0
   targetHairColor: 0

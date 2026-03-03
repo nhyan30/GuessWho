@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cf21bacfd4586bf4bb3dd6335b4075a6, type: 3}
   m_Name: 13
   m_EditorClassIdentifier: 
-  questionText: Is your charcater female?
-  category: 3
+  QuestionText: Is your character female?
+  Category: 0
   attributeToCheck: 0
   expectedValue: 0
   targetHairColor: 3

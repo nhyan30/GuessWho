@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using Networking;
 
 /// <summary>
 /// GameManager controls the Guess Who game flow.
+/// Supports both Single Player (vs AI) and Multiplayer modes.
 /// </summary>
 public class GameManager : MonoBehaviour
 {
@@ -14,9 +16,9 @@ public class GameManager : MonoBehaviour
     [Header("Character Data")]
     [SerializeField] private List<SCR_Character> characterList = new List<SCR_Character>();
     [SerializeField] private Transform playerGrid;
-    [SerializeField] private Transform aiGrid; // Mini grid for AI
+    [SerializeField] private Transform opponentGrid;
     [SerializeField] private GameObject playerCellPrefab;
-    [SerializeField] private GameObject aiCellPrefab;
+    [SerializeField] private GameObject opponentCellPrefab;
 
     [Header("Popup")]
     [SerializeField] private PopupController popup;
@@ -29,20 +31,24 @@ public class GameManager : MonoBehaviour
     [SerializeField] private Image selectedCharacterImage;
     [SerializeField] private TMP_Text selectedCharacterText;
 
-    [Header("AI's Character Display")]
-    [SerializeField] private Image aiCharacterImage;
-    [SerializeField] private TMP_Text aiCharacterText;
+    [Header("Opponent's Character Display")]
+    [SerializeField] private Image opponentCharacterImage;
+    [SerializeField] private TMP_Text opponentCharacterText;
+
+    // Game mode
+    private GameMode currentGameMode = GameMode.SinglePlayer;
 
     // Game state
     private GameState currentState;
     private SCR_Character playerSelectedCharacter;
-    private SCR_Character aiSelectedCharacter;
+    private SCR_Character opponentSelectedCharacter;
     private List<Cell> playerCells = new List<Cell>();
-    private List<AICell> aiCells = new List<AICell>(); // AI's mini grid cells
+    private List<OpponentCell> opponentCells = new List<OpponentCell>();
     private List<SCR_Character> playerRemainingCharacters = new List<SCR_Character>();
     private SCR_Question currentQuestion;
-    private bool isInGuessMode = false; // Track if player is in guess mode
-    private bool gameStarted = false; // Track if game has started
+    private bool isInGuessMode = false;
+    private bool gameStarted = false;
+    private bool isMyTurn = true;
 
     #region Unity Lifecycle
 
@@ -55,10 +61,9 @@ public class GameManager : MonoBehaviour
         SetupEventListeners();
     }
 
-    // Don't auto-start - MainMenuController will call BeginGame()
     private void Start()
     {
-        // Game starts via BeginGame() when player clicks Start
+        // Game starts via BeginGame() when player clicks menu button
     }
 
     #endregion
@@ -66,36 +71,66 @@ public class GameManager : MonoBehaviour
     #region Game Flow Control
 
     /// <summary>
-    /// Called by MainMenuController when player clicks Start button.
-    /// Initializes and starts the game.
+    /// Called by MainMenuController to start the game.
     /// </summary>
-    public void BeginGame()
+    public void BeginGame(GameMode mode)
     {
+        currentGameMode = mode;
         gameStarted = true;
+        isMyTurn = true; // Host/player always goes first
+
+        Debug.Log($"[Game] Starting {mode} game");
+
+        if (mode == GameMode.Multiplayer)
+        {
+            SetupMultiplayerEvents();
+        }
+
         StartGame();
     }
 
-    /// <summary>
-    /// Returns to main menu (called after game over).
-    /// </summary>
+    private void SetupMultiplayerEvents()
+    {
+        if (NetworkManager.Instance != null)
+        {
+            NetworkManager.Instance.OnOpponentCharacterSelected += OnOpponentCharacterSelected;
+            NetworkManager.Instance.OnTurnChanged += OnTurnChanged;
+            NetworkManager.Instance.OnAnswerReceived += OnAnswerReceived;
+            NetworkManager.Instance.OnOpponentGuess += OnOpponentGuess;
+            NetworkManager.Instance.OnGameOver += OnGameOver;
+        }
+    }
+
+    private void RemoveMultiplayerEvents()
+    {
+        if (NetworkManager.Instance != null)
+        {
+            NetworkManager.Instance.OnOpponentCharacterSelected -= OnOpponentCharacterSelected;
+            NetworkManager.Instance.OnTurnChanged -= OnTurnChanged;
+            NetworkManager.Instance.OnAnswerReceived -= OnAnswerReceived;
+            NetworkManager.Instance.OnOpponentGuess -= OnOpponentGuess;
+            NetworkManager.Instance.OnGameOver -= OnGameOver;
+        }
+    }
+
     public void ReturnToMainMenu()
     {
         gameStarted = false;
+        isMyTurn = true;
+        RemoveMultiplayerEvents();
 
-        // Reset everything
         popup?.Hide();
         HideAllUI();
 
         foreach (var cell in playerCells)
             cell.MarkAsEliminated(false);
 
-        foreach (var cell in aiCells)
+        foreach (var cell in opponentCells)
             cell.MarkAsEliminated(false);
 
         QuestionManager.Instance?.ClearAskedHistory();
         AIController.Instance?.ResetAI();
 
-        // Tell MainMenuController to handle the transition
         MainMenuController.Instance?.ReturnToMainMenu();
     }
 
@@ -106,13 +141,12 @@ public class GameManager : MonoBehaviour
     private void HideAllUI()
     {
         selectedCharacterImage?.gameObject.SetActive(false);
-        aiCharacterImage?.gameObject.SetActive(false);
+        opponentCharacterImage?.gameObject.SetActive(false);
         DisableQuestionBar();
     }
 
     private void SetupEventListeners()
     {
-        // Popup events
         if (popup != null)
         {
             popup.OnOkayClicked += OnPopupOkay;
@@ -120,13 +154,11 @@ public class GameManager : MonoBehaviour
             popup.OnAnswerClicked += OnPopupAnswer;
         }
 
-        // Question bar events
         if (questionBar != null)
         {
             questionBar.OnQuestionSent += OnQuestionSent;
         }
 
-        // Do a guess button
         if (doAGuessButton != null)
         {
             doAGuessButton.onClick.AddListener(OnDoAGuessPressed);
@@ -135,21 +167,20 @@ public class GameManager : MonoBehaviour
 
     private void StartGame()
     {
-        // Reset game state
         playerRemainingCharacters = new List<SCR_Character>(characterList);
         playerSelectedCharacter = null;
-        aiSelectedCharacter = null;
+        opponentSelectedCharacter = null;
         currentQuestion = null;
         isInGuessMode = false;
 
-        // Fill grids
         FillPlayerGrid();
-        FillAIGrid();
+        FillOpponentGrid();
 
-        // Select AI character
-        SelectAICharacter();
+        if (currentGameMode == GameMode.SinglePlayer)
+        {
+            SelectAICharacter();
+        }
 
-        // Start with character selection popup
         currentState = GameState.CharacterSelection;
         popup?.ShowCharacterSelect();
     }
@@ -171,30 +202,30 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    private void FillAIGrid()
+    private void FillOpponentGrid()
     {
-        if (aiGrid == null || aiCellPrefab == null) return;
+        if (opponentGrid == null || opponentCellPrefab == null) return;
 
-        aiCells.Clear();
-        foreach (Transform child in aiGrid) Destroy(child.gameObject);
+        opponentCells.Clear();
+        foreach (Transform child in opponentGrid) Destroy(child.gameObject);
 
         for (int i = 0; i < characterList.Count; i++)
         {
-            GameObject cellObj = Instantiate(aiCellPrefab, aiGrid, false);
-            AICell cell = cellObj.GetComponent<AICell>();
+            GameObject cellObj = Instantiate(opponentCellPrefab, opponentGrid, false);
+            OpponentCell cell = cellObj.GetComponent<OpponentCell>();
             if (cell != null)
             {
                 cell.SetCell(characterList[i]);
-                aiCells.Add(cell);
+                opponentCells.Add(cell);
             }
         }
     }
 
     private void SelectAICharacter()
     {
-        aiSelectedCharacter = characterList[Random.Range(0, characterList.Count)];
-        AIController.Instance?.Initialize(characterList, aiSelectedCharacter);
-        Debug.Log($"[Game] AI selected: {aiSelectedCharacter.characterName}");
+        opponentSelectedCharacter = characterList[Random.Range(0, characterList.Count)];
+        AIController.Instance?.Initialize(characterList, opponentSelectedCharacter);
+        Debug.Log($"[Game] AI selected: {opponentSelectedCharacter.characterName}");
     }
 
     #endregion
@@ -223,7 +254,11 @@ public class GameManager : MonoBehaviour
             case PopupType.AIAnswer:
                 popup?.Hide();
                 EliminateCharactersFromAnswer();
-                StartAITurn();
+
+                if (currentGameMode == GameMode.SinglePlayer)
+                    StartAITurn();
+                else
+                    StartOpponentTurn();
                 break;
 
             case PopupType.GuessConfirm:
@@ -236,8 +271,6 @@ public class GameManager : MonoBehaviour
 
             case PopupType.Message:
                 popup?.Hide();
-                // If we're in guess mode, DON'T reset it - let player click a character
-                // Only re-enable controls if NOT in guess mode
                 if (currentState == GameState.PlayerTurn && !isInGuessMode)
                 {
                     EnableQuestionBar();
@@ -258,10 +291,9 @@ public class GameManager : MonoBehaviour
                 break;
 
             case PopupType.GuessConfirm:
-                // User cancelled guess - go back to normal player turn
                 popup?.Hide();
                 isInGuessMode = false;
-                currentState = GameState.PlayerTurn; // Reset state to PlayerTurn!
+                currentState = GameState.PlayerTurn;
                 EnableQuestionBar();
                 break;
         }
@@ -272,12 +304,18 @@ public class GameManager : MonoBehaviour
         if (currentState == GameState.AIQuestion)
         {
             popup?.Hide();
-            // Mark question as asked for AI
             QuestionManager.Instance?.MarkQuestionAsAskedAI(currentQuestion);
-            // Update AI's knowledge
-            AIController.Instance?.ProcessPlayerAnswer(currentQuestion, answer);
-            // Update AI's mini grid
-            EliminateCharactersForAI(currentQuestion, answer);
+
+            if (currentGameMode == GameMode.SinglePlayer)
+            {
+                AIController.Instance?.ProcessPlayerAnswer(currentQuestion, answer);
+                EliminateCharactersForOpponent(currentQuestion, answer);
+            }
+            else
+            {
+                NetworkManager.Instance?.SendAnswer(answer);
+            }
+
             StartPlayerTurn();
         }
     }
@@ -309,16 +347,25 @@ public class GameManager : MonoBehaviour
             selectedCharacterText.text = playerSelectedCharacter.characterName;
         }
 
+        // Send to opponent in multiplayer
+        if (currentGameMode == GameMode.Multiplayer && NetworkManager.Instance != null)
+        {
+            NetworkManager.Instance.SendCharacterSelected(playerSelectedCharacter.characterName);
+        }
+
         StartPlayerTurn();
+    }
+
+    private void OnOpponentCharacterSelected(string characterName)
+    {
+        opponentSelectedCharacter = characterList.Find(c => c.characterName == characterName);
+        Debug.Log($"[Game] Opponent selected: {characterName}");
     }
 
     #endregion
 
     #region Cell Click Handler
 
-    /// <summary>
-    /// Called when a cell is clicked. Behavior depends on current state.
-    /// </summary>
     public void OnCellClicked(SCR_Character character)
     {
         if (currentState == GameState.CharacterSelection)
@@ -327,7 +374,6 @@ public class GameManager : MonoBehaviour
         }
         else if (currentState == GameState.PlayerTurn && isInGuessMode)
         {
-            // Only allow guess confirmation if in guess mode
             currentState = GameState.GuessConfirm;
             popup?.ShowGuessConfirm(character);
         }
@@ -340,6 +386,7 @@ public class GameManager : MonoBehaviour
     private void StartPlayerTurn()
     {
         currentState = GameState.PlayerTurn;
+        isMyTurn = true;
         isInGuessMode = false;
         popup?.ShowQuestionSelect();
     }
@@ -366,8 +413,8 @@ public class GameManager : MonoBehaviour
         if (currentState != GameState.PlayerTurn) return;
 
         currentQuestion = question;
-        // Mark as asked by player
         QuestionManager.Instance?.MarkQuestionAsAsked(question);
+
         StartCoroutine(ProcessPlayerQuestion());
     }
 
@@ -379,8 +426,20 @@ public class GameManager : MonoBehaviour
         popup?.ShowAIThinking();
         yield return new WaitForSeconds(1f);
 
-        bool answer = currentQuestion.MatchesCharacter(aiSelectedCharacter);
-        popup?.ShowAIAnswer(answer);
+        if (currentGameMode == GameMode.SinglePlayer)
+        {
+            bool answer = currentQuestion.MatchesCharacter(opponentSelectedCharacter);
+            popup?.ShowAIAnswer(answer);
+        }
+        else
+        {
+            // In multiplayer, wait for opponent's answer
+            bool answer = currentQuestion.MatchesCharacter(opponentSelectedCharacter);
+            popup?.ShowAIAnswer(answer);
+
+            // Send answer to opponent
+            NetworkManager.Instance?.SendAnswer(answer);
+        }
     }
 
     private void EliminateCharactersFromAnswer()
@@ -403,17 +462,11 @@ public class GameManager : MonoBehaviour
         playerRemainingCharacters = CharacterFilter.GetRemainingCharacters(
             playerRemainingCharacters, currentQuestion, answerIsYes);
 
-        Debug.Log($"[Game] {playerRemainingCharacters.Count} characters remaining for player");
-
-        if (playerRemainingCharacters.Count == 1)
-        {
-            Debug.Log($"[Game] Only {playerRemainingCharacters[0].characterName} remains!");
-        }
+        Debug.Log($"[Game] {playerRemainingCharacters.Count} characters remaining");
     }
 
     private void OnDoAGuessPressed()
     {
-        // Enter guess mode
         isInGuessMode = true;
         DisableQuestionBar();
         popup?.ShowMessage("Click on a character to make your guess!");
@@ -429,11 +482,17 @@ public class GameManager : MonoBehaviour
         popup?.Hide();
         isInGuessMode = false;
 
-        bool isCorrect = guessedCharacter == aiSelectedCharacter;
+        bool isCorrect = guessedCharacter == opponentSelectedCharacter;
 
         popup?.ShowMessage(isCorrect
             ? $"Correct! It was {guessedCharacter.characterName}!"
-            : $"Wrong! It was {aiSelectedCharacter.characterName}!");
+            : $"Wrong! It was {opponentSelectedCharacter.characterName}!");
+
+        // In multiplayer, send guess result
+        if (currentGameMode == GameMode.Multiplayer && NetworkManager.Instance != null)
+        {
+            NetworkManager.Instance.SendGameOver(isCorrect, guessedCharacter.characterName);
+        }
 
         yield return new WaitForSeconds(2f);
 
@@ -445,7 +504,24 @@ public class GameManager : MonoBehaviour
 
     #endregion
 
-    #region AI Turn
+    #region Opponent/AI Turn
+
+    private void StartOpponentTurn()
+    {
+        currentState = GameState.AITurn;
+        isInGuessMode = false;
+        isMyTurn = false;
+
+        if (currentGameMode == GameMode.SinglePlayer)
+        {
+            StartCoroutine(AITurnCoroutine());
+        }
+        else
+        {
+            // In multiplayer, wait for opponent
+            Debug.Log("[Game] Waiting for opponent's turn");
+        }
+    }
 
     private void StartAITurn()
     {
@@ -486,23 +562,21 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    private void EliminateCharactersForAI(SCR_Question question, bool answerIsYes)
+    private void EliminateCharactersForOpponent(SCR_Question question, bool answerIsYes)
     {
-        if (aiCells.Count == 0) return;
+        if (opponentCells.Count == 0) return;
 
-        // Get all characters that AI hasn't eliminated yet
-        var aiRemaining = new List<SCR_Character>(characterList);
+        var opponentRemaining = new List<SCR_Character>(characterList);
 
-        // Remove already eliminated characters
-        foreach (var cell in aiCells)
+        foreach (var cell in opponentCells)
         {
             if (cell.IsEliminated)
-                aiRemaining.Remove(cell.Character);
+                opponentRemaining.Remove(cell.Character);
         }
 
-        var toEliminate = CharacterFilter.GetCharactersToEliminate(aiRemaining, question, answerIsYes);
+        var toEliminate = CharacterFilter.GetCharactersToEliminate(opponentRemaining, question, answerIsYes);
 
-        foreach (var cell in aiCells)
+        foreach (var cell in opponentCells)
         {
             if (toEliminate.Contains(cell.Character))
             {
@@ -510,7 +584,7 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        Debug.Log($"[Game] AI eliminated {toEliminate.Count} characters from mini grid");
+        Debug.Log($"[Game] Opponent eliminated {toEliminate.Count} characters");
     }
 
     private void ProcessAIGuess(SCR_Character guessedCharacter)
@@ -531,54 +605,80 @@ public class GameManager : MonoBehaviour
 
     #endregion
 
+    #region Multiplayer Events
+
+    private void OnTurnChanged(bool myTurn)
+    {
+        if (myTurn)
+        {
+            StartPlayerTurn();
+        }
+        else
+        {
+            StartOpponentTurn();
+        }
+    }
+
+    private void OnAnswerReceived(bool answer)
+    {
+        // Received answer from opponent
+        Debug.Log($"[Game] Opponent answer: {answer}");
+    }
+
+    private void OnOpponentGuess(string characterId)
+    {
+        SCR_Character guessed = characterList.Find(c => c.characterName == characterId);
+        if (guessed == playerSelectedCharacter)
+        {
+            // Opponent guessed correctly
+            popup?.ShowMessage($"Opponent guessed: {characterId}\n\nYou Lose!");
+            Invoke(nameof(PlayerLoses), 2f);
+        }
+        else
+        {
+            // Opponent guessed wrong
+            popup?.ShowMessage($"Opponent guessed wrong: {characterId}");
+            Invoke(nameof(StartPlayerTurn), 2f);
+        }
+    }
+
+    private void OnGameOver(bool iWon, string winnerCharacterId)
+    {
+        if (iWon)
+            PlayerWins();
+        else
+            PlayerLoses();
+    }
+
+    #endregion
+
     #region Win/Loss
 
     private void PlayerWins()
     {
         currentState = GameState.GameOver;
-        ShowAICharacter();
-        popup?.ShowGameOver(true, aiSelectedCharacter);
+        ShowOpponentCharacter();
+        popup?.ShowGameOver(true, opponentSelectedCharacter);
     }
 
     private void PlayerLoses()
     {
         currentState = GameState.GameOver;
-        ShowAICharacter();
-        popup?.ShowGameOver(false, aiSelectedCharacter);
+        ShowOpponentCharacter();
+        popup?.ShowGameOver(false, opponentSelectedCharacter);
     }
 
-    private void ShowAICharacter()
+    private void ShowOpponentCharacter()
     {
-        if (aiCharacterImage != null)
+        if (opponentCharacterImage != null && opponentSelectedCharacter != null)
         {
-            aiCharacterImage.sprite = aiSelectedCharacter.characterSprite;
-            aiCharacterImage.gameObject.SetActive(true);
+            opponentCharacterImage.sprite = opponentSelectedCharacter.characterSprite;
+            opponentCharacterImage.gameObject.SetActive(true);
         }
-        if (aiCharacterText != null)
+        if (opponentCharacterText != null && opponentSelectedCharacter != null)
         {
-            aiCharacterText.text = aiSelectedCharacter.characterName;
+            opponentCharacterText.text = opponentSelectedCharacter.characterName;
         }
-    }
-
-    #endregion
-
-    #region Restart
-
-    private void RestartGame()
-    {
-        popup?.Hide();
-        HideAllUI();
-
-        foreach (var cell in playerCells)
-            cell.MarkAsEliminated(false);
-
-        foreach (var cell in aiCells)
-            cell.MarkAsEliminated(false);
-
-        QuestionManager.Instance?.ClearAskedHistory();
-        AIController.Instance?.ResetAI();
-
-        StartGame();
     }
 
     #endregion
@@ -587,8 +687,10 @@ public class GameManager : MonoBehaviour
 
     public GameState GetGameState() => currentState;
     public bool IsInGuessMode => isInGuessMode;
+    public bool IsMyTurn => isMyTurn;
+    public GameMode CurrentGameMode => currentGameMode;
     public SCR_Character GetPlayerCharacter() => playerSelectedCharacter;
-    public SCR_Character GetAICharacter() => aiSelectedCharacter;
+    public SCR_Character GetOpponentCharacter() => opponentSelectedCharacter;
 
     #endregion
 }

@@ -3,196 +3,254 @@ using System.Linq;
 using UnityEngine;
 
 /// <summary>
-/// Manages questions for the game.
-/// Tracks separately which questions player and AI have asked.
+/// Manages all questions in the game. Handles question navigation,
+/// filtering, and provides questions for both player and AI.
+/// Uses Singleton pattern for easy access.
 /// </summary>
 public class QuestionManager : MonoBehaviour
 {
     public static QuestionManager Instance { get; private set; }
 
-    [Header("Questions")]
+    [Header("Question Database")]
     [SerializeField] private List<SCR_Question> allQuestions = new List<SCR_Question>();
 
-    private int currentIndex;
+    [Header("Settings")]
+    [SerializeField] private bool shuffleQuestionsOnStart = true;
+
+    // Current question index for navigation
+    private int currentQuestionIndex = 0;
+
+    // Track asked questions to avoid repetition - separate for player and AI
     private HashSet<SCR_Question> askedByPlayer = new HashSet<SCR_Question>();
     private HashSet<SCR_Question> askedByAI = new HashSet<SCR_Question>();
 
-    public SCR_Question CurrentQuestion => allQuestions.Count > 0 ? allQuestions[currentIndex] : null;
-    public int TotalQuestions => allQuestions.Count;
+    // Combined set for backwards compatibility
+    private HashSet<SCR_Question> askedQuestions => new HashSet<SCR_Question>(askedByPlayer.Concat(askedByAI));
 
+    // Questions organized by category for efficient access
+    private Dictionary<QuestionCategory, List<SCR_Question>> questionsByCategory;
+
+    #region Properties
+    public SCR_Question CurrentQuestion =>
+        allQuestions.Count > 0 ? allQuestions[currentQuestionIndex] : null;
+
+    public int TotalQuestions => allQuestions.Count;
+    public int CurrentIndex => currentQuestionIndex;
+    public int AskedCount => askedQuestions.Count;
+    #endregion
+
+    #region Unity Lifecycle
     private void Awake()
     {
-        if (Instance == null) Instance = this;
-        else Destroy(gameObject);
+        if (Instance == null)
+        {
+            Instance = this;
+        }
+        else
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        InitializeQuestions();
+    }
+    #endregion
+
+    #region Initialization
+    private void InitializeQuestions()
+    {
+        if (shuffleQuestionsOnStart)
+        {
+            ShuffleQuestions();
+        }
+
+        OrganizeQuestionsByCategory();
     }
 
+    private void ShuffleQuestions()
+    {
+        // Fisher-Yates shuffle
+        for (int i = allQuestions.Count - 1; i > 0; i--)
+        {
+            int randomIndex = Random.Range(0, i + 1);
+            (allQuestions[i], allQuestions[randomIndex]) =
+                (allQuestions[randomIndex], allQuestions[i]);
+        }
+    }
+
+    private void OrganizeQuestionsByCategory()
+    {
+        questionsByCategory = new Dictionary<QuestionCategory, List<SCR_Question>>();
+
+        foreach (QuestionCategory category in System.Enum.GetValues(typeof(QuestionCategory)))
+        {
+            questionsByCategory[category] = allQuestions
+                .Where(q => q.Category == category)
+                .ToList();
+        }
+    }
+    #endregion
+
+    #region Navigation Methods
     /// <summary>
-    /// Gets the next UNASKED question for player navigation.
-    /// Skips questions that have been asked by the player.
+    /// Moves to the next question in the list.
     /// </summary>
+    /// <returns>The next question, or null if at the end</returns>
     public SCR_Question GetNextQuestion()
     {
         if (allQuestions.Count == 0) return null;
 
-        // Try to find next unasked question
-        int startIndex = currentIndex;
-        do
-        {
-            currentIndex = (currentIndex + 1) % allQuestions.Count;
-            if (!askedByPlayer.Contains(allQuestions[currentIndex]))
-            {
-                return CurrentQuestion;
-            }
-        } while (currentIndex != startIndex);
-
-        // All questions asked, return current anyway
+        currentQuestionIndex = (currentQuestionIndex + 1) % allQuestions.Count;
         return CurrentQuestion;
     }
 
     /// <summary>
-    /// Gets the previous UNASKED question for player navigation.
-    /// Skips questions that have been asked by the player.
+    /// Moves to the previous question in the list.
     /// </summary>
+    /// <returns>The previous question, or null if at the beginning</returns>
     public SCR_Question GetPreviousQuestion()
     {
         if (allQuestions.Count == 0) return null;
 
-        int startIndex = currentIndex;
-        do
+        currentQuestionIndex--;
+        if (currentQuestionIndex < 0)
         {
-            currentIndex--;
-            if (currentIndex < 0) currentIndex = allQuestions.Count - 1;
-
-            if (!askedByPlayer.Contains(allQuestions[currentIndex]))
-            {
-                return CurrentQuestion;
-            }
-        } while (currentIndex != startIndex);
+            currentQuestionIndex = allQuestions.Count - 1;
+        }
 
         return CurrentQuestion;
     }
 
     /// <summary>
-    /// Marks a question as asked by the PLAYER.
+    /// Gets a question at a specific index.
+    /// </summary>
+    public SCR_Question GetQuestionAtIndex(int index)
+    {
+        if (index < 0 || index >= allQuestions.Count) return null;
+        return allQuestions[index];
+    }
+
+    /// <summary>
+    /// Resets the question index to the beginning.
+    /// </summary>
+    public void ResetToFirstQuestion()
+    {
+        currentQuestionIndex = 0;
+    }
+    #endregion
+
+    #region Question Tracking
+    /// <summary>
+    /// Marks a question as asked by the player (to avoid repetition).
     /// </summary>
     public void MarkQuestionAsAsked(SCR_Question question)
     {
         if (question != null)
         {
             askedByPlayer.Add(question);
-            Debug.Log($"[QM] Player asked: {question.QuestionText}");
         }
     }
 
     /// <summary>
-    /// Marks a question as asked by the AI.
+    /// Marks a question as asked by the AI (to avoid repetition).
     /// </summary>
     public void MarkQuestionAsAskedAI(SCR_Question question)
     {
         if (question != null)
         {
             askedByAI.Add(question);
-            Debug.Log($"[QM] AI asked: {question.QuestionText}");
         }
     }
 
     /// <summary>
-    /// Gets questions that haven't been asked by the PLAYER.
+    /// Checks if a question has already been asked.
+    /// </summary>
+    public bool WasQuestionAsked(SCR_Question question)
+    {
+        return askedByPlayer.Contains(question) || askedByAI.Contains(question);
+    }
+
+    /// <summary>
+    /// Gets all unasked questions.
     /// </summary>
     public List<SCR_Question> GetUnaskedQuestions()
-    {
-        return allQuestions.Where(q => !askedByPlayer.Contains(q)).ToList();
-    }
-
-    /// <summary>
-    /// Gets questions that haven't been asked by the AI.
-    /// </summary>
-    public List<SCR_Question> GetUnaskedQuestionsAI()
-    {
-        return allQuestions.Where(q => !askedByAI.Contains(q)).ToList();
-    }
-
-    /// <summary>
-    /// Gets questions that haven't been asked by EITHER player or AI.
-    /// </summary>
-    public List<SCR_Question> GetAvailableQuestions()
     {
         return allQuestions.Where(q => !askedByPlayer.Contains(q) && !askedByAI.Contains(q)).ToList();
     }
 
+    /// <summary>
+    /// Clears the asked questions history.
+    /// </summary>
     public void ClearAskedHistory()
     {
         askedByPlayer.Clear();
         askedByAI.Clear();
     }
+    #endregion
 
-    public void ResetToFirstQuestion()
-    {
-        currentIndex = 0;
-
-        // Find first unasked question
-        if (askedByPlayer.Count > 0)
-        {
-            for (int i = 0; i < allQuestions.Count; i++)
-            {
-                if (!askedByPlayer.Contains(allQuestions[i]))
-                {
-                    currentIndex = i;
-                    break;
-                }
-            }
-        }
-    }
-
+    #region Category Methods
     /// <summary>
-    /// Gets the best question for AI to ask (from AI's unasked questions).
+    /// Gets all questions in a specific category.
     /// </summary>
-    public SCR_Question GetBestQuestionForAI(List<SCR_Character> characters)
+    public List<SCR_Question> GetQuestionsByCategory(QuestionCategory category)
     {
-        if (characters == null || characters.Count <= 1) return null;
+        return questionsByCategory.TryGetValue(category, out var questions)
+            ? questions
+            : new List<SCR_Question>();
+    }
+    #endregion
 
-        var unaskedForAI = GetUnaskedQuestionsAI();
-        if (unaskedForAI.Count == 0) return null;
+    #region AI Helper Methods
+    /// <summary>
+    /// Gets the best question for AI to ask based on remaining characters.
+    /// Uses a scoring system to find questions that eliminate the most characters.
+    /// </summary>
+    /// <param name="remainingCharacters">List of characters still in play</param>
+    /// <returns>The best question to ask</returns>
+    public SCR_Question GetBestQuestionForAI(List<SCR_Character> remainingCharacters)
+    {
+        if (remainingCharacters == null || remainingCharacters.Count <= 1)
+            return null;
 
-        SCR_Question best = null;
+        SCR_Question bestQuestion = null;
         float bestScore = -1f;
 
-        foreach (var q in unaskedForAI)
+        foreach (var question in GetUnaskedQuestions())
         {
-            float score = CalculateScore(q, characters);
+            float score = CalculateQuestionScore(question, remainingCharacters);
+
             if (score > bestScore)
             {
                 bestScore = score;
-                best = q;
+                bestQuestion = question;
             }
         }
 
-        return best;
+        return bestQuestion;
     }
 
-    private float CalculateScore(SCR_Question question, List<SCR_Character> characters)
+    /// <summary>
+    /// Calculates how good a question is for eliminating characters.
+    /// A score of 0.5 means it splits the characters evenly (optimal).
+    /// </summary>
+    private float CalculateQuestionScore(SCR_Question question, List<SCR_Character> characters)
     {
-        int match = 0;
-        foreach (var c in characters)
-            if (question.MatchesCharacter(c)) match++;
+        int matchCount = 0;
+        int totalCount = characters.Count;
 
-        float ratio = (float)match / characters.Count;
+        foreach (var character in characters)
+        {
+            if (question.MatchesCharacter(character))
+            {
+                matchCount++;
+            }
+        }
+
+        float ratio = (float)matchCount / totalCount;
+
+        // Score is higher when ratio is closer to 0.5 (splits evenly)
+        // Use inverted distance from 0.5
         return 1f - Mathf.Abs(0.5f - ratio);
     }
-
-    /// <summary>
-    /// Checks if a question has been asked by the player.
-    /// </summary>
-    public bool WasAskedByPlayer(SCR_Question question)
-    {
-        return askedByPlayer.Contains(question);
-    }
-
-    /// <summary>
-    /// Checks if a question has been asked by the AI.
-    /// </summary>
-    public bool WasAskedByAI(SCR_Question question)
-    {
-        return askedByAI.Contains(question);
-    }
+    #endregion
 }

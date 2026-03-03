@@ -1,13 +1,14 @@
 using UnityEngine;
 
 /// <summary>
-/// Simple cell for AI's mini grid.
+/// Represents a cell in the opponent's grid (AI or multiplayer opponent).
 /// Only handles showing/hiding the crossout image.
 /// </summary>
-public class AICell : MonoBehaviour
+public class OpponentCell : MonoBehaviour
 {
     [Header("UI References")]
     [SerializeField] private GameObject crossOutImage;
+    [SerializeField] private UnityEngine.UI.Image characterImage;
 
     private SCR_Character character;
     private bool isEliminated;
@@ -21,6 +22,12 @@ public class AICell : MonoBehaviour
     public void SetCell(SCR_Character _character)
     {
         character = _character;
+        
+        if (characterImage != null && character != null)
+        {
+            characterImage.sprite = character.characterSprite;
+        }
+        
         MarkAsEliminated(false);
     }
 
