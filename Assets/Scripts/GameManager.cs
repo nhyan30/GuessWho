@@ -42,6 +42,7 @@ public class GameManager : MonoBehaviour
     private List<SCR_Character> playerRemainingCharacters = new List<SCR_Character>();
     private SCR_Question currentQuestion;
     private bool isInGuessMode = false; // Track if player is in guess mode
+    private bool gameStarted = false; // Track if game has started
 
     #region Unity Lifecycle
 
@@ -54,9 +55,48 @@ public class GameManager : MonoBehaviour
         SetupEventListeners();
     }
 
+    // Don't auto-start - MainMenuController will call BeginGame()
     private void Start()
     {
+        // Game starts via BeginGame() when player clicks Start
+    }
+
+    #endregion
+
+    #region Game Flow Control
+
+    /// <summary>
+    /// Called by MainMenuController when player clicks Start button.
+    /// Initializes and starts the game.
+    /// </summary>
+    public void BeginGame()
+    {
+        gameStarted = true;
         StartGame();
+    }
+
+    /// <summary>
+    /// Returns to main menu (called after game over).
+    /// </summary>
+    public void ReturnToMainMenu()
+    {
+        gameStarted = false;
+
+        // Reset everything
+        popup?.Hide();
+        HideAllUI();
+
+        foreach (var cell in playerCells)
+            cell.MarkAsEliminated(false);
+
+        foreach (var cell in aiCells)
+            cell.MarkAsEliminated(false);
+
+        QuestionManager.Instance?.ClearAskedHistory();
+        AIController.Instance?.ResetAI();
+
+        // Tell MainMenuController to handle the transition
+        MainMenuController.Instance?.ReturnToMainMenu();
     }
 
     #endregion
@@ -191,7 +231,7 @@ public class GameManager : MonoBehaviour
                 break;
 
             case PopupType.GameOver:
-                RestartGame();
+                ReturnToMainMenu();
                 break;
 
             case PopupType.Message:
@@ -221,6 +261,7 @@ public class GameManager : MonoBehaviour
                 // User cancelled guess - go back to normal player turn
                 popup?.Hide();
                 isInGuessMode = false;
+                currentState = GameState.PlayerTurn; // Reset state to PlayerTurn!
                 EnableQuestionBar();
                 break;
         }
