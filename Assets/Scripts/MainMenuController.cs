@@ -26,6 +26,7 @@ public class MainMenuController : MonoBehaviour
 
     [Header("Find Game Panel")]
     [SerializeField] private TMP_Text roomCodeText;
+    [SerializeField] private TMP_Text ipHintText;  // Shows IP address hint
     [SerializeField] private TMP_Text waitingText;
     [SerializeField] private Button cancelFindButton;
 
@@ -34,6 +35,7 @@ public class MainMenuController : MonoBehaviour
     [SerializeField] private Button joinConfirmButton;
     [SerializeField] private Button cancelJoinButton;
     [SerializeField] private TMP_Text joinErrorText;
+    [SerializeField] private TMP_Text joinHintText;  // Hint text for joining
 
     [Header("Game Reference")]
     [SerializeField] private GameManager gameManager;
@@ -164,6 +166,10 @@ public class MainMenuController : MonoBehaviour
         if (joinErrorText != null)
             joinErrorText.text = "";
 
+        // Show hint about same network requirement
+        if (joinHintText != null)
+            joinHintText.text = "Make sure you're on the same WiFi network as the host";
+
         // Show join game panel
         ShowPanel(joinGamePanel);
     }
@@ -246,6 +252,12 @@ public class MainMenuController : MonoBehaviour
         if (roomCodeText != null)
             roomCodeText.text = roomCode;
 
+        // Show IP hint for debugging/verification
+        if (ipHintText != null && Networking.NetworkManager.Instance != null)
+        {
+            ipHintText.text = $"IP: {Networking.NetworkManager.Instance.HostIPAddress}";
+        }
+
         waitingCoroutine = StartCoroutine(WaitingAnimation());
     }
 
@@ -254,18 +266,19 @@ public class MainMenuController : MonoBehaviour
         if (!success)
         {
             if (joinErrorText != null)
-                joinErrorText.text = "Could not join room";
+                joinErrorText.text = "Could not join room. Check if host is on same network.";
             return;
         }
 
         Debug.Log("[Menu] Successfully joined room");
+        currentRoomCode = codeInputField?.text ?? "";
 
         // Hide join panel, show waiting
         HidePanel(joinGamePanel);
         ShowPanel(findGamePanel);
 
         if (roomCodeText != null)
-            roomCodeText.text = currentRoomCode;
+            roomCodeText.text = "Connected!";
 
         waitingCoroutine = StartCoroutine(WaitingAnimation());
     }
