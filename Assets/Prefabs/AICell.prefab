@@ -86,7 +86,7 @@ GameObject:
   - component: {fileID: 1040871683017820874}
   - component: {fileID: 5099226209868818339}
   - component: {fileID: 1566493617203714498}
-  - component: {fileID: 4670677204378688352}
+  - component: {fileID: 7137040303112994749}
   m_Layer: 5
   m_Name: AICell
   m_TagString: Untagged
@@ -152,7 +152,7 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &4670677204378688352
+--- !u!114 &7137040303112994749
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -161,7 +161,8 @@ MonoBehaviour:
   m_GameObject: {fileID: 6376714100957440378}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2cad3d97ee583294d9c48832fb89eb21, type: 3}
+  m_Script: {fileID: 11500000, guid: e5f111145944c5e45816b433e2342595, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   crossOutImage: {fileID: 3115913492629565648}
+  characterImage: {fileID: 0}

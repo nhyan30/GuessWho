@@ -34,7 +34,7 @@ namespace Networking
         public event Action<string> OnOpponentCharacterSelected;
         public event Action<string, bool> OnQuestionReceived;
         public event Action<bool> OnAnswerReceived;
-        public event Action<List<string>> OnEliminationUpdate;
+        public event Action<string, bool> OnEliminationReceived; // character name, should eliminate
         public event Action<string> OnOpponentGuess;
         public event Action<bool, string> OnGameOver;
 
@@ -56,8 +56,12 @@ namespace Networking
         // Message handling
         private readonly object lockObject = new object();
         private Queue<Action> mainThreadActions = new Queue<Action>();
-        private const int BUFFER_SIZE = 4096;
+        private const int BUFFER_SIZE = 8192;
         private byte[] receiveBuffer = new byte[BUFFER_SIZE];
+
+        // Message framing
+        private StringBuilder messageBuilder = new StringBuilder();
+        private const string MESSAGE_END = "<EOM>";
 
         #region Properties
         public bool IsHost => isHost;
@@ -127,7 +131,7 @@ namespace Networking
                 // Get local IP address
                 string localIP = GetLocalIPAddress();
                 HostIPAddress = localIP;
-                
+
                 // Start TCP listener
                 tcpListener = new TcpListener(IPAddress.Any, defaultPort);
                 tcpListener.Start();
@@ -167,7 +171,7 @@ namespace Networking
 
                 // Decode IP address from room code
                 string hostIP = DecodeCodeToIP(currentRoomCode);
-                
+
                 if (string.IsNullOrEmpty(hostIP))
                 {
                     OnError?.Invoke("Invalid room code");
@@ -180,7 +184,7 @@ namespace Networking
                 // Connect to host
                 tcpClient = new TcpClient();
                 var connectResult = tcpClient.BeginConnect(hostIP, defaultPort, null, null);
-                
+
                 if (!connectResult.AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(10)))
                 {
                     OnError?.Invoke("Connection timeout - host not found");
@@ -189,7 +193,7 @@ namespace Networking
                 }
 
                 tcpClient.EndConnect(connectResult);
-                
+
                 isHost = false;
                 isConnected = true;
                 isGameActive = false;
@@ -232,21 +236,21 @@ namespace Networking
             // Close network stream
             if (networkStream != null)
             {
-                networkStream.Close();
+                try { networkStream.Close(); } catch { }
                 networkStream = null;
             }
 
             // Close TCP client
             if (tcpClient != null)
             {
-                tcpClient.Close();
+                try { tcpClient.Close(); } catch { }
                 tcpClient = null;
             }
 
             // Stop TCP listener
             if (tcpListener != null)
             {
-                tcpListener.Stop();
+                try { tcpListener.Stop(); } catch { }
                 tcpListener = null;
             }
 
@@ -280,9 +284,9 @@ namespace Networking
                     {
                         tcpClient = tcpListener.AcceptTcpClient();
                         networkStream = tcpClient.GetStream();
-                        
+
                         Debug.Log("[Network] Player connected!");
-                        
+
                         // Notify main thread
                         QueueMainThreadAction(() => {
                             OnPlayerJoined?.Invoke();
@@ -312,15 +316,17 @@ namespace Networking
         {
             try
             {
+                byte[] buffer = new byte[BUFFER_SIZE];
+
                 while (isRunning && networkStream != null && tcpClient != null && tcpClient.Connected)
                 {
                     if (networkStream.DataAvailable)
                     {
-                        int bytesRead = networkStream.Read(receiveBuffer, 0, BUFFER_SIZE);
+                        int bytesRead = networkStream.Read(buffer, 0, BUFFER_SIZE);
                         if (bytesRead > 0)
                         {
-                            string message = Encoding.UTF8.GetString(receiveBuffer, 0, bytesRead);
-                            ProcessReceivedMessage(message);
+                            string data = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                            ProcessReceivedData(data);
                         }
                     }
                     Thread.Sleep(10);
@@ -339,6 +345,30 @@ namespace Networking
             }
         }
 
+        private void ProcessReceivedData(string data)
+        {
+            // Add to message builder
+            messageBuilder.Append(data);
+
+            // Process complete messages
+            string accumulated = messageBuilder.ToString();
+            int endIndex;
+
+            while ((endIndex = accumulated.IndexOf(MESSAGE_END)) != -1)
+            {
+                string message = accumulated.Substring(0, endIndex);
+                accumulated = accumulated.Substring(endIndex + MESSAGE_END.Length);
+
+                if (!string.IsNullOrEmpty(message))
+                {
+                    ProcessReceivedMessage(message);
+                }
+            }
+
+            messageBuilder.Clear();
+            messageBuilder.Append(accumulated);
+        }
+
         private void ProcessReceivedMessage(string message)
         {
             if (string.IsNullOrEmpty(message)) return;
@@ -346,14 +376,14 @@ namespace Networking
             try
             {
                 var msg = JsonUtility.FromJson<NetworkMessage>(message);
-                
+
                 QueueMainThreadAction(() => {
                     HandleMessage(msg);
                 });
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[Network] Failed to parse message: {ex.Message}");
+                Debug.LogError($"[Network] Failed to parse message: {ex.Message}\nMessage: {message}");
             }
         }
 
@@ -373,8 +403,16 @@ namespace Networking
                     break;
 
                 case "question":
-                    var qData = JsonUtility.FromJson<QuestionMessage>(msg.data);
-                    OnQuestionReceived?.Invoke(qData.questionId, qData.expectedAnswer);
+                    try
+                    {
+                        var qData = JsonUtility.FromJson<QuestionData>(msg.data);
+                        Debug.Log($"[Network] Question received: {qData.questionText}");
+                        OnQuestionReceived?.Invoke(qData.questionText, qData.expectedAnswer);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError($"[Network] Failed to parse question: {ex.Message}");
+                    }
                     break;
 
                 case "answer":
@@ -383,18 +421,34 @@ namespace Networking
                     OnAnswerReceived?.Invoke(answer);
                     break;
 
+                case "elimination":
+                    try
+                    {
+                        var eData = JsonUtility.FromJson<EliminationData>(msg.data);
+                        Debug.Log($"[Network] Elimination: {eData.characterName} - {eData.eliminated}");
+                        OnEliminationReceived?.Invoke(eData.characterName, eData.eliminated);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError($"[Network] Failed to parse elimination: {ex.Message}");
+                    }
+                    break;
+
                 case "guess":
                     Debug.Log($"[Network] Opponent guess: {msg.data}");
                     OnOpponentGuess?.Invoke(msg.data);
                     break;
 
                 case "game_over":
-                    var goData = JsonUtility.FromJson<GameOverMessage>(msg.data);
-                    OnGameOver?.Invoke(goData.iWon, goData.characterId);
-                    break;
-
-                case "player_joined":
-                    Debug.Log("[Network] Player joined confirmation received");
+                    try
+                    {
+                        var goData = JsonUtility.FromJson<GameOverData>(msg.data);
+                        OnGameOver?.Invoke(goData.iWon, goData.characterId);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError($"[Network] Failed to parse game over: {ex.Message}");
+                    }
                     break;
             }
         }
@@ -406,6 +460,7 @@ namespace Networking
             try
             {
                 string json = JsonUtility.ToJson(msg);
+                json += MESSAGE_END; // Add message end marker
                 byte[] data = Encoding.UTF8.GetBytes(json);
                 networkStream.Write(data, 0, data.Length);
                 networkStream.Flush();
@@ -461,17 +516,17 @@ namespace Networking
         /// <summary>
         /// Sends a question to opponent.
         /// </summary>
-        public void SendQuestion(string questionId, bool expectedAnswer)
+        public void SendQuestion(string questionText, bool expectedAnswer)
         {
             if (!isConnected) return;
 
-            Debug.Log($"[Network] Sending question: {questionId}");
+            Debug.Log($"[Network] Sending question: {questionText}");
             SendMessage(new NetworkMessage
             {
                 type = "question",
-                data = JsonUtility.ToJson(new QuestionMessage
+                data = JsonUtility.ToJson(new QuestionData
                 {
-                    questionId = questionId,
+                    questionText = questionText,
                     expectedAnswer = expectedAnswer
                 })
             });
@@ -493,18 +548,36 @@ namespace Networking
         }
 
         /// <summary>
-        /// Sends elimination update.
+        /// Sends elimination update for a single character.
         /// </summary>
-        public void SendElimination(List<string> eliminatedIds)
+        public void SendElimination(string characterName, bool eliminated)
         {
             if (!isConnected) return;
 
-            Debug.Log($"[Network] Sending elimination: {eliminatedIds.Count}");
+            Debug.Log($"[Network] Sending elimination: {characterName} - {eliminated}");
             SendMessage(new NetworkMessage
             {
                 type = "elimination",
-                data = JsonUtility.ToJson(new EliminationMessage { ids = eliminatedIds })
+                data = JsonUtility.ToJson(new EliminationData
+                {
+                    characterName = characterName,
+                    eliminated = eliminated
+                })
             });
+        }
+
+        /// <summary>
+        /// Sends elimination update for multiple characters.
+        /// </summary>
+        public void SendEliminationList(List<string> eliminatedIds)
+        {
+            if (!isConnected) return;
+
+            Debug.Log($"[Network] Sending elimination list: {eliminatedIds.Count} characters");
+            foreach (var id in eliminatedIds)
+            {
+                SendElimination(id, true);
+            }
         }
 
         /// <summary>
@@ -533,7 +606,7 @@ namespace Networking
             SendMessage(new NetworkMessage
             {
                 type = "game_over",
-                data = JsonUtility.ToJson(new GameOverMessage
+                data = JsonUtility.ToJson(new GameOverData
                 {
                     iWon = iWon,
                     characterId = winnerCharacterId
@@ -620,7 +693,7 @@ namespace Networking
 
             // Encode: third octet (3 digits) + fourth octet (3 digits)
             string code = third.ToString("000") + fourth.ToString("000");
-            
+
             Debug.Log($"[Network] Encoded IP {ip} to code: {code}");
             return code;
         }
@@ -650,7 +723,7 @@ namespace Networking
 
                 // Reconstruct host IP
                 string hostIP = $"{subnetPrefix}.{third}.{fourth}";
-                
+
                 Debug.Log($"[Network] Decoded code {code} to IP: {hostIP}");
                 return hostIP;
             }
@@ -673,20 +746,21 @@ namespace Networking
         }
 
         [Serializable]
-        private class QuestionMessage
+        private class QuestionData
         {
-            public string questionId;
+            public string questionText;
             public bool expectedAnswer;
         }
 
         [Serializable]
-        private class EliminationMessage
+        private class EliminationData
         {
-            public List<string> ids;
+            public string characterName;
+            public bool eliminated;
         }
 
         [Serializable]
-        private class GameOverMessage
+        private class GameOverData
         {
             public bool iWon;
             public string characterId;

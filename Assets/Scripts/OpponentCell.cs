@@ -8,7 +8,7 @@ public class OpponentCell : MonoBehaviour
 {
     [Header("UI References")]
     [SerializeField] private GameObject crossOutImage;
-    [SerializeField] private UnityEngine.UI.Image characterImage;
+    //[SerializeField] private UnityEngine.UI.Image characterImage;
 
     private SCR_Character character;
     private bool isEliminated;
@@ -23,10 +23,10 @@ public class OpponentCell : MonoBehaviour
     {
         character = _character;
         
-        if (characterImage != null && character != null)
-        {
-            characterImage.sprite = character.characterSprite;
-        }
+        //if (characterImage != null && character != null)
+        //{
+        //    characterImage.sprite = character.characterSprite;
+        //}
         
         MarkAsEliminated(false);
     }

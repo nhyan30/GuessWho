@@ -48,7 +48,16 @@ public class GameManager : MonoBehaviour
     private SCR_Question currentQuestion;
     private bool isInGuessMode = false;
     private bool gameStarted = false;
+
+    // Multiplayer turn tracking
     private bool isMyTurn = true;
+    private bool opponentCharacterPicked = false;
+    private bool myCharacterPicked = false;
+    private SCR_Question opponentQuestion; // Question received from opponent
+    private bool waitingForOpponentAnswer = false;
+
+    // Track eliminations for opponent grid sync
+    private HashSet<string> opponentEliminatedCharacters = new HashSet<string>();
 
     #region Unity Lifecycle
 
@@ -77,13 +86,21 @@ public class GameManager : MonoBehaviour
     {
         currentGameMode = mode;
         gameStarted = true;
-        isMyTurn = true; // Host/player always goes first
+        myCharacterPicked = false;
+        opponentCharacterPicked = false;
+        opponentEliminatedCharacters.Clear();
 
         Debug.Log($"[Game] Starting {mode} game");
 
         if (mode == GameMode.Multiplayer)
         {
+            // Host always goes first
+            isMyTurn = NetworkManager.Instance.IsHost;
             SetupMultiplayerEvents();
+        }
+        else
+        {
+            isMyTurn = true;
         }
 
         StartGame();
@@ -94,10 +111,12 @@ public class GameManager : MonoBehaviour
         if (NetworkManager.Instance != null)
         {
             NetworkManager.Instance.OnOpponentCharacterSelected += OnOpponentCharacterSelected;
-            NetworkManager.Instance.OnTurnChanged += OnTurnChanged;
-            NetworkManager.Instance.OnAnswerReceived += OnAnswerReceived;
+            NetworkManager.Instance.OnQuestionReceived += OnQuestionReceivedFromOpponent;
+            NetworkManager.Instance.OnAnswerReceived += OnAnswerReceivedFromOpponent;
+            NetworkManager.Instance.OnEliminationReceived += OnEliminationReceivedFromOpponent;
             NetworkManager.Instance.OnOpponentGuess += OnOpponentGuess;
             NetworkManager.Instance.OnGameOver += OnGameOver;
+            NetworkManager.Instance.OnPlayerLeft += OnOpponentDisconnected;
         }
     }
 
@@ -106,10 +125,12 @@ public class GameManager : MonoBehaviour
         if (NetworkManager.Instance != null)
         {
             NetworkManager.Instance.OnOpponentCharacterSelected -= OnOpponentCharacterSelected;
-            NetworkManager.Instance.OnTurnChanged -= OnTurnChanged;
-            NetworkManager.Instance.OnAnswerReceived -= OnAnswerReceived;
+            NetworkManager.Instance.OnQuestionReceived -= OnQuestionReceivedFromOpponent;
+            NetworkManager.Instance.OnAnswerReceived -= OnAnswerReceivedFromOpponent;
+            NetworkManager.Instance.OnEliminationReceived -= OnEliminationReceivedFromOpponent;
             NetworkManager.Instance.OnOpponentGuess -= OnOpponentGuess;
             NetworkManager.Instance.OnGameOver -= OnGameOver;
+            NetworkManager.Instance.OnPlayerLeft -= OnOpponentDisconnected;
         }
     }
 
@@ -117,6 +138,10 @@ public class GameManager : MonoBehaviour
     {
         gameStarted = false;
         isMyTurn = true;
+        myCharacterPicked = false;
+        opponentCharacterPicked = false;
+        waitingForOpponentAnswer = false;
+        opponentEliminatedCharacters.Clear();
         RemoveMultiplayerEvents();
 
         popup?.Hide();
@@ -248,7 +273,14 @@ public class GameManager : MonoBehaviour
 
             case PopupType.QuestionSelect:
                 popup?.Hide();
-                EnableQuestionBar();
+                if (currentGameMode == GameMode.Multiplayer && !isMyTurn)
+                {
+                    popup?.ShowMessage("Wait for your turn!");
+                }
+                else
+                {
+                    EnableQuestionBar();
+                }
                 break;
 
             case PopupType.AIAnswer:
@@ -256,9 +288,14 @@ public class GameManager : MonoBehaviour
                 EliminateCharactersFromAnswer();
 
                 if (currentGameMode == GameMode.SinglePlayer)
+                {
                     StartAITurn();
+                }
                 else
-                    StartOpponentTurn();
+                {
+                    // In multiplayer, switch turns after seeing answer
+                    SwitchTurns();
+                }
                 break;
 
             case PopupType.GuessConfirm:
@@ -271,9 +308,10 @@ public class GameManager : MonoBehaviour
 
             case PopupType.Message:
                 popup?.Hide();
-                if (currentState == GameState.PlayerTurn && !isInGuessMode)
+                // After message, check if it's our turn to ask
+                if (currentState == GameState.PlayerTurn && !isInGuessMode && isMyTurn)
                 {
-                    EnableQuestionBar();
+                    popup?.ShowQuestionSelect();
                 }
                 break;
         }
@@ -294,7 +332,10 @@ public class GameManager : MonoBehaviour
                 popup?.Hide();
                 isInGuessMode = false;
                 currentState = GameState.PlayerTurn;
-                EnableQuestionBar();
+                if (isMyTurn)
+                {
+                    EnableQuestionBar();
+                }
                 break;
         }
     }
@@ -304,19 +345,30 @@ public class GameManager : MonoBehaviour
         if (currentState == GameState.AIQuestion)
         {
             popup?.Hide();
-            QuestionManager.Instance?.MarkQuestionAsAskedAI(currentQuestion);
 
             if (currentGameMode == GameMode.SinglePlayer)
             {
+                QuestionManager.Instance?.MarkQuestionAsAskedAI(currentQuestion);
                 AIController.Instance?.ProcessPlayerAnswer(currentQuestion, answer);
                 EliminateCharactersForOpponent(currentQuestion, answer);
+                StartPlayerTurn();
             }
             else
             {
-                NetworkManager.Instance?.SendAnswer(answer);
-            }
+                // Multiplayer: send answer back to opponent
+                QuestionManager.Instance?.MarkQuestionAsAskedAI(opponentQuestion);
+                EliminateCharactersForOpponent(opponentQuestion, answer);
 
-            StartPlayerTurn();
+                // Send eliminations to opponent
+                SendEliminationsToOpponent(opponentQuestion, answer);
+
+                Debug.Log($"[Game] Sending answer to opponent: {answer}");
+                NetworkManager.Instance?.SendAnswer(answer);
+
+                // After answering, it becomes our turn to ask
+                isMyTurn = true;
+                StartPlayerTurn();
+            }
         }
     }
 
@@ -336,6 +388,7 @@ public class GameManager : MonoBehaviour
     private void ConfirmCharacterSelection()
     {
         popup?.Hide();
+        myCharacterPicked = true;
 
         if (selectedCharacterImage != null)
         {
@@ -353,13 +406,56 @@ public class GameManager : MonoBehaviour
             NetworkManager.Instance.SendCharacterSelected(playerSelectedCharacter.characterName);
         }
 
-        StartPlayerTurn();
+        // Check if both players have selected characters
+        if (currentGameMode == GameMode.Multiplayer)
+        {
+            if (opponentCharacterPicked)
+            {
+                // Both selected - start the game
+                if (isMyTurn)
+                {
+                    StartPlayerTurn();
+                }
+                else
+                {
+                    ShowWaitingForOpponentQuestion();
+                }
+            }
+            else
+            {
+                // Wait for opponent to pick
+                popup?.ShowMessage("Waiting for opponent to pick a character...");
+            }
+        }
+        else
+        {
+            // Single player - start immediately
+            StartPlayerTurn();
+        }
     }
 
     private void OnOpponentCharacterSelected(string characterName)
     {
         opponentSelectedCharacter = characterList.Find(c => c.characterName == characterName);
+        opponentCharacterPicked = true;
         Debug.Log($"[Game] Opponent selected: {characterName}");
+
+        // If we already picked, and opponent just picked, check turn
+        if (myCharacterPicked)
+        {
+            if (isMyTurn)
+            {
+                // Our turn - dismiss any waiting popup and start
+                popup?.Hide();
+                StartPlayerTurn();
+            }
+            else
+            {
+                // Their turn - show waiting
+                popup?.Hide();
+                ShowWaitingForOpponentQuestion();
+            }
+        }
     }
 
     #endregion
@@ -386,8 +482,15 @@ public class GameManager : MonoBehaviour
     private void StartPlayerTurn()
     {
         currentState = GameState.PlayerTurn;
-        isMyTurn = true;
         isInGuessMode = false;
+
+        if (currentGameMode == GameMode.Multiplayer && !isMyTurn)
+        {
+            // Not our turn - should not happen, but safety check
+            Debug.LogWarning("[Game] StartPlayerTurn called but not our turn!");
+            return;
+        }
+
         popup?.ShowQuestionSelect();
     }
 
@@ -411,6 +514,11 @@ public class GameManager : MonoBehaviour
     private void OnQuestionSent(SCR_Question question)
     {
         if (currentState != GameState.PlayerTurn) return;
+        if (currentGameMode == GameMode.Multiplayer && !isMyTurn)
+        {
+            Debug.LogWarning("[Game] Tried to send question on opponent's turn!");
+            return;
+        }
 
         currentQuestion = question;
         QuestionManager.Instance?.MarkQuestionAsAsked(question);
@@ -423,22 +531,27 @@ public class GameManager : MonoBehaviour
         DisableQuestionBar();
         isInGuessMode = false;
 
-        popup?.ShowAIThinking();
-        yield return new WaitForSeconds(1f);
-
         if (currentGameMode == GameMode.SinglePlayer)
         {
+            popup?.ShowAIThinking();
+            yield return new WaitForSeconds(1f);
+
             bool answer = currentQuestion.MatchesCharacter(opponentSelectedCharacter);
             popup?.ShowAIAnswer(answer);
         }
         else
         {
-            // In multiplayer, wait for opponent's answer
-            bool answer = currentQuestion.MatchesCharacter(opponentSelectedCharacter);
-            popup?.ShowAIAnswer(answer);
+            // Multiplayer: send question to opponent and wait
+            waitingForOpponentAnswer = true;
 
-            // Send answer to opponent
-            NetworkManager.Instance?.SendAnswer(answer);
+            // Show waiting message
+            popup?.ShowMessage("Waiting for opponent to answer...");
+
+            // Send question to opponent
+            bool expectedAnswer = currentQuestion.MatchesCharacter(opponentSelectedCharacter);
+            NetworkManager.Instance?.SendQuestion(currentQuestion.QuestionText, expectedAnswer);
+
+            Debug.Log($"[Game] Question sent to opponent: {currentQuestion.QuestionText}");
         }
     }
 
@@ -467,6 +580,12 @@ public class GameManager : MonoBehaviour
 
     private void OnDoAGuessPressed()
     {
+        if (currentGameMode == GameMode.Multiplayer && !isMyTurn)
+        {
+            Debug.LogWarning("[Game] Cannot guess on opponent's turn!");
+            return;
+        }
+
         isInGuessMode = true;
         DisableQuestionBar();
         popup?.ShowMessage("Click on a character to make your guess!");
@@ -484,22 +603,175 @@ public class GameManager : MonoBehaviour
 
         bool isCorrect = guessedCharacter == opponentSelectedCharacter;
 
+        if (currentGameMode == GameMode.Multiplayer)
+        {
+            // Send guess to opponent
+            NetworkManager.Instance?.SendGuess(guessedCharacter.characterName);
+        }
+
         popup?.ShowMessage(isCorrect
             ? $"Correct! It was {guessedCharacter.characterName}!"
             : $"Wrong! It was {opponentSelectedCharacter.characterName}!");
-
-        // In multiplayer, send guess result
-        if (currentGameMode == GameMode.Multiplayer && NetworkManager.Instance != null)
-        {
-            NetworkManager.Instance.SendGameOver(isCorrect, guessedCharacter.characterName);
-        }
 
         yield return new WaitForSeconds(2f);
 
         if (isCorrect)
             PlayerWins();
         else
-            PlayerLoses();
+        {
+            if (currentGameMode == GameMode.SinglePlayer)
+            {
+                StartAITurn();
+            }
+            else
+            {
+                // Wrong guess in multiplayer - opponent's turn
+                SwitchTurns();
+            }
+        }
+    }
+
+    #endregion
+
+    #region Multiplayer Question/Answer Handling
+
+    private void ShowWaitingForOpponentQuestion()
+    {
+        currentState = GameState.AITurn; // Using AITurn state for "opponent's turn"
+        popup?.ShowMessage("Waiting for opponent to pick a question...");
+    }
+
+    private void OnQuestionReceivedFromOpponent(string questionText, bool expectedAnswer)
+    {
+        Debug.Log($"[Game] Received question from opponent: {questionText}");
+
+        // Find the question object
+        opponentQuestion = FindQuestionByText(questionText);
+
+        if (opponentQuestion == null)
+        {
+            Debug.LogError($"[Game] Could not find question: {questionText}");
+            return;
+        }
+
+        currentState = GameState.AIQuestion;
+
+        // Show question popup for player to answer
+        bool correctIsYes = opponentQuestion.MatchesCharacter(playerSelectedCharacter);
+        popup?.ShowAIQuestion(opponentQuestion, correctIsYes);
+    }
+
+    private SCR_Question FindQuestionByText(string questionText)
+    {
+        if (QuestionManager.Instance == null) return null;
+
+        for (int i = 0; i < QuestionManager.Instance.TotalQuestions; i++)
+        {
+            var q = QuestionManager.Instance.GetQuestionAtIndex(i);
+            if (q != null && q.QuestionText == questionText)
+                return q;
+        }
+        return null;
+    }
+
+    private void OnAnswerReceivedFromOpponent(bool answer)
+    {
+        Debug.Log($"[Game] Received answer from opponent: {answer}");
+
+        waitingForOpponentAnswer = false;
+
+        // Show answer popup
+        popup?.Hide();
+        popup?.ShowAIAnswer(answer);
+    }
+
+    private void SwitchTurns()
+    {
+        isMyTurn = !isMyTurn;
+        Debug.Log($"[Game] Turn switched - isMyTurn: {isMyTurn}");
+
+        if (isMyTurn)
+        {
+            StartPlayerTurn();
+        }
+        else
+        {
+            ShowWaitingForOpponentQuestion();
+        }
+    }
+
+    private void OnOpponentDisconnected()
+    {
+        popup?.ShowMessage("Opponent disconnected!");
+        Invoke(nameof(ReturnToMainMenu), 2f);
+    }
+
+    #endregion
+
+    #region Opponent Grid Sync
+
+    private void EliminateCharactersForOpponent(SCR_Question question, bool answerIsYes)
+    {
+        if (opponentCells.Count == 0) return;
+
+        var opponentRemaining = new List<SCR_Character>(characterList);
+
+        foreach (var cell in opponentCells)
+        {
+            if (cell.IsEliminated)
+                opponentRemaining.Remove(cell.Character);
+        }
+
+        var toEliminate = CharacterFilter.GetCharactersToEliminate(opponentRemaining, question, answerIsYes);
+
+        foreach (var cell in opponentCells)
+        {
+            if (toEliminate.Contains(cell.Character))
+            {
+                cell.MarkAsEliminated(true);
+            }
+        }
+
+        Debug.Log($"[Game] Opponent grid: eliminated {toEliminate.Count} characters");
+    }
+
+    private void SendEliminationsToOpponent(SCR_Question question, bool answerIsYes)
+    {
+        if (currentGameMode != GameMode.Multiplayer) return;
+        if (NetworkManager.Instance == null) return;
+
+        // Calculate which characters the opponent should eliminate on their grid
+        var opponentRemaining = new List<SCR_Character>(characterList);
+
+        foreach (var cell in opponentCells)
+        {
+            if (cell.IsEliminated)
+                opponentRemaining.Remove(cell.Character);
+        }
+
+        var toEliminate = CharacterFilter.GetCharactersToEliminate(opponentRemaining, question, answerIsYes);
+
+        // Send each elimination to opponent
+        foreach (var character in toEliminate)
+        {
+            NetworkManager.Instance.SendElimination(character.characterName, true);
+        }
+    }
+
+    private void OnEliminationReceivedFromOpponent(string characterName, bool eliminated)
+    {
+        Debug.Log($"[Game] Received elimination from opponent: {characterName} - {eliminated}");
+
+        // Find the cell in opponent grid and mark it
+        foreach (var cell in opponentCells)
+        {
+            if (cell.Character != null && cell.Character.characterName == characterName)
+            {
+                cell.MarkAsEliminated(eliminated);
+                Debug.Log($"[Game] Updated opponent grid cell: {characterName}");
+                break;
+            }
+        }
     }
 
     #endregion
@@ -518,7 +790,7 @@ public class GameManager : MonoBehaviour
         }
         else
         {
-            // In multiplayer, wait for opponent
+            // In multiplayer, wait for opponent's action
             Debug.Log("[Game] Waiting for opponent's turn");
         }
     }
@@ -562,31 +834,6 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    private void EliminateCharactersForOpponent(SCR_Question question, bool answerIsYes)
-    {
-        if (opponentCells.Count == 0) return;
-
-        var opponentRemaining = new List<SCR_Character>(characterList);
-
-        foreach (var cell in opponentCells)
-        {
-            if (cell.IsEliminated)
-                opponentRemaining.Remove(cell.Character);
-        }
-
-        var toEliminate = CharacterFilter.GetCharactersToEliminate(opponentRemaining, question, answerIsYes);
-
-        foreach (var cell in opponentCells)
-        {
-            if (toEliminate.Contains(cell.Character))
-            {
-                cell.MarkAsEliminated(true);
-            }
-        }
-
-        Debug.Log($"[Game] Opponent eliminated {toEliminate.Count} characters");
-    }
-
     private void ProcessAIGuess(SCR_Character guessedCharacter)
     {
         bool isCorrect = guessedCharacter == playerSelectedCharacter;
@@ -603,44 +850,29 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    #endregion
-
-    #region Multiplayer Events
-
-    private void OnTurnChanged(bool myTurn)
-    {
-        if (myTurn)
-        {
-            StartPlayerTurn();
-        }
-        else
-        {
-            StartOpponentTurn();
-        }
-    }
-
-    private void OnAnswerReceived(bool answer)
-    {
-        // Received answer from opponent
-        Debug.Log($"[Game] Opponent answer: {answer}");
-    }
-
     private void OnOpponentGuess(string characterId)
     {
         SCR_Character guessed = characterList.Find(c => c.characterName == characterId);
+
         if (guessed == playerSelectedCharacter)
         {
-            // Opponent guessed correctly
+            // Opponent guessed correctly - we lose
             popup?.ShowMessage($"Opponent guessed: {characterId}\n\nYou Lose!");
             Invoke(nameof(PlayerLoses), 2f);
         }
         else
         {
-            // Opponent guessed wrong
+            // Opponent guessed wrong - continue game
             popup?.ShowMessage($"Opponent guessed wrong: {characterId}");
+            // Wrong guess means it's our turn now
+            isMyTurn = true;
             Invoke(nameof(StartPlayerTurn), 2f);
         }
     }
+
+    #endregion
+
+    #region Game Over Events
 
     private void OnGameOver(bool iWon, string winnerCharacterId)
     {

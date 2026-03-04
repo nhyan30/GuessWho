@@ -13,7 +13,6 @@ public class QuestionBarController : MonoBehaviour
     [SerializeField] private Button leftArrowButton;
     [SerializeField] private Button rightArrowButton;
     [SerializeField] private Button sendButton;
-    [SerializeField] private TMP_Text sendButtonText;
 
     [Header("Visual Settings")]
     [SerializeField] private Color normalColor = Color.white;

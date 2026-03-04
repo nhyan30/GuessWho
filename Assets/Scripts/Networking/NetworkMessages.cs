@@ -12,24 +12,24 @@ namespace Networking
         PlayerJoined = 1,
         PlayerLeft = 2,
         GameReady = 3,
-        
+
         // Character Selection
         CharacterSelected = 10,
         CharacterConfirmed = 11,
-        
+
         // Game Flow
         TurnChanged = 20,
         QuestionAsked = 21,
         QuestionAnswered = 22,
         CharacterEliminated = 23,
-        
+
         // Guessing
         GuessMade = 30,
         GuessResult = 31,
-        
+
         // Game Over
         GameOver = 40,
-        
+
         // Room
         RoomCreated = 50,
         RoomJoined = 51,
