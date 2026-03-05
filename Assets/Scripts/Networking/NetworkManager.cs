@@ -21,6 +21,10 @@ namespace Networking
         [SerializeField] private int defaultPort = 7777;
         [SerializeField] private float connectionTimeout = 30f;
 
+        [Header("Debug")]
+        [SerializeField] private bool debugLogging = true;
+        [SerializeField] private bool showTraffic = true;
+
         // Events - Connection
         public event Action<string> OnRoomCreated;
         public event Action<bool> OnRoomJoined;
@@ -34,7 +38,7 @@ namespace Networking
         public event Action<string> OnOpponentCharacterSelected;
         public event Action<string, bool> OnQuestionReceived;
         public event Action<bool> OnAnswerReceived;
-        public event Action<string, bool> OnEliminationReceived; // character name, should eliminate
+        public event Action<string, bool> OnEliminationReceived;
         public event Action<string> OnOpponentGuess;
         public event Action<bool, string> OnGameOver;
 
@@ -57,10 +61,8 @@ namespace Networking
         private readonly object lockObject = new object();
         private Queue<Action> mainThreadActions = new Queue<Action>();
         private const int BUFFER_SIZE = 8192;
-        private byte[] receiveBuffer = new byte[BUFFER_SIZE];
 
         // Message framing
-        private StringBuilder messageBuilder = new StringBuilder();
         private const string MESSAGE_END = "<EOM>";
 
         #region Properties
@@ -117,36 +119,41 @@ namespace Networking
             LeaveRoom();
         }
 
+        private void LogDebug(string message)
+        {
+            if (debugLogging)
+                Debug.Log($"[Network] {message}");
+        }
+
+        private void LogTraffic(string direction, string message)
+        {
+            if (showTraffic)
+                Debug.Log($"[Network Traffic {direction}] {message}");
+        }
+
         #endregion
 
         #region Room Management
 
-        /// <summary>
-        /// Creates a new game room and starts listening for connections.
-        /// </summary>
         public void CreateRoom()
         {
             try
             {
-                // Get local IP address
                 string localIP = GetLocalIPAddress();
                 HostIPAddress = localIP;
 
-                // Start TCP listener
                 tcpListener = new TcpListener(IPAddress.Any, defaultPort);
                 tcpListener.Start();
                 isRunning = true;
 
-                // Generate room code from IP address
                 currentRoomCode = EncodeIPToCode(localIP, defaultPort);
                 isHost = true;
                 isConnected = true;
                 isGameActive = false;
 
-                Debug.Log($"[Network] Room created: {currentRoomCode} (IP: {localIP}:{defaultPort})");
+                LogDebug($"Room created: {currentRoomCode} (IP: {localIP}:{defaultPort})");
                 OnRoomCreated?.Invoke(currentRoomCode);
 
-                // Start listening for connections in background thread
                 listenerThread = new Thread(ListenForConnections);
                 listenerThread.IsBackground = true;
                 listenerThread.Start();
@@ -160,16 +167,11 @@ namespace Networking
             }
         }
 
-        /// <summary>
-        /// Attempts to join an existing room using the room code.
-        /// </summary>
         public void JoinRoom(string roomCode)
         {
             try
             {
                 currentRoomCode = roomCode.ToUpper().Trim();
-
-                // Decode IP address from room code
                 string hostIP = DecodeCodeToIP(currentRoomCode);
 
                 if (string.IsNullOrEmpty(hostIP))
@@ -179,10 +181,11 @@ namespace Networking
                     return;
                 }
 
-                Debug.Log($"[Network] Connecting to {hostIP}:{defaultPort}...");
+                LogDebug($"Connecting to {hostIP}:{defaultPort}...");
 
-                // Connect to host
                 tcpClient = new TcpClient();
+
+                // Use synchronous connect with timeout
                 var connectResult = tcpClient.BeginConnect(hostIP, defaultPort, null, null);
 
                 if (!connectResult.AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(10)))
@@ -196,10 +199,14 @@ namespace Networking
 
                 isHost = false;
                 isConnected = true;
+                isRunning = true; // IMPORTANT: Must be set before starting receive thread!
                 isGameActive = false;
                 networkStream = tcpClient.GetStream();
 
-                Debug.Log($"[Network] Connected to host!");
+                // Disable Nagle's algorithm for faster message delivery
+                tcpClient.NoDelay = true;
+
+                LogDebug("Connected to host!");
                 OnRoomJoined?.Invoke(true);
 
                 // Start receiving messages
@@ -207,7 +214,6 @@ namespace Networking
                 receiveThread.IsBackground = true;
                 receiveThread.Start();
 
-                // Notify game that connection is ready
                 StartCoroutine(NotifyConnectionReady());
             }
             catch (SocketException ex)
@@ -224,50 +230,40 @@ namespace Networking
             }
         }
 
-        /// <summary>
-        /// Leaves the current room and closes all connections.
-        /// </summary>
         public void LeaveRoom()
         {
             isRunning = false;
             isConnected = false;
             isGameActive = false;
 
-            // Close network stream
             if (networkStream != null)
             {
                 try { networkStream.Close(); } catch { }
                 networkStream = null;
             }
 
-            // Close TCP client
             if (tcpClient != null)
             {
                 try { tcpClient.Close(); } catch { }
                 tcpClient = null;
             }
 
-            // Stop TCP listener
             if (tcpListener != null)
             {
                 try { tcpListener.Stop(); } catch { }
                 tcpListener = null;
             }
 
-            // Wait for threads to finish
             if (listenerThread != null && listenerThread.IsAlive)
-            {
                 listenerThread.Join(500);
-            }
+
             if (receiveThread != null && receiveThread.IsAlive)
-            {
                 receiveThread.Join(500);
-            }
 
             currentRoomCode = null;
             isHost = false;
 
-            Debug.Log("[Network] Left room and closed all connections");
+            LogDebug("Left room and closed all connections");
         }
 
         #endregion
@@ -283,41 +279,45 @@ namespace Networking
                     if (tcpListener.Pending())
                     {
                         tcpClient = tcpListener.AcceptTcpClient();
+
+                        // Disable Nagle's algorithm
+                        tcpClient.NoDelay = true;
+
                         networkStream = tcpClient.GetStream();
 
-                        Debug.Log("[Network] Player connected!");
+                        LogDebug("Player connected!");
 
-                        // Notify main thread
                         QueueMainThreadAction(() => {
                             OnPlayerJoined?.Invoke();
                             StartCoroutine(StartGameAfterConnection());
                         });
 
-                        // Start receiving messages
+                        // Start receiving messages immediately
                         receiveThread = new Thread(ReceiveMessages);
                         receiveThread.IsBackground = true;
                         receiveThread.Start();
 
-                        break; // Only accept one connection
+                        break;
                     }
-                    Thread.Sleep(100);
+                    Thread.Sleep(50);
                 }
             }
             catch (Exception ex)
             {
                 if (isRunning)
-                {
                     Debug.LogError($"[Network] Listener error: {ex.Message}");
-                }
             }
         }
 
         private void ReceiveMessages()
         {
+            LogDebug("Receive thread started");
+
+            byte[] buffer = new byte[BUFFER_SIZE];
+            StringBuilder messageBuilder = new StringBuilder();
+
             try
             {
-                byte[] buffer = new byte[BUFFER_SIZE];
-
                 while (isRunning && networkStream != null && tcpClient != null && tcpClient.Connected)
                 {
                     if (networkStream.DataAvailable)
@@ -326,7 +326,28 @@ namespace Networking
                         if (bytesRead > 0)
                         {
                             string data = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                            ProcessReceivedData(data);
+                            LogTraffic("RECV", $"Raw data ({bytesRead} bytes): {data}");
+
+                            messageBuilder.Append(data);
+
+                            // Process complete messages
+                            string accumulated = messageBuilder.ToString();
+                            int endIndex;
+
+                            while ((endIndex = accumulated.IndexOf(MESSAGE_END)) != -1)
+                            {
+                                string message = accumulated.Substring(0, endIndex);
+                                accumulated = accumulated.Substring(endIndex + MESSAGE_END.Length);
+
+                                if (!string.IsNullOrEmpty(message))
+                                {
+                                    LogTraffic("RECV", $"Message: {message}");
+                                    ProcessReceivedMessage(message);
+                                }
+                            }
+
+                            messageBuilder.Clear();
+                            messageBuilder.Append(accumulated);
                         }
                     }
                     Thread.Sleep(10);
@@ -343,30 +364,8 @@ namespace Networking
                     });
                 }
             }
-        }
 
-        private void ProcessReceivedData(string data)
-        {
-            // Add to message builder
-            messageBuilder.Append(data);
-
-            // Process complete messages
-            string accumulated = messageBuilder.ToString();
-            int endIndex;
-
-            while ((endIndex = accumulated.IndexOf(MESSAGE_END)) != -1)
-            {
-                string message = accumulated.Substring(0, endIndex);
-                accumulated = accumulated.Substring(endIndex + MESSAGE_END.Length);
-
-                if (!string.IsNullOrEmpty(message))
-                {
-                    ProcessReceivedMessage(message);
-                }
-            }
-
-            messageBuilder.Clear();
-            messageBuilder.Append(accumulated);
+            LogDebug("Receive thread ended");
         }
 
         private void ProcessReceivedMessage(string message)
@@ -389,16 +388,18 @@ namespace Networking
 
         private void HandleMessage(NetworkMessage msg)
         {
+            LogDebug($"Handling message type: {msg.type}");
+
             switch (msg.type)
             {
                 case "character_selected":
-                    Debug.Log($"[Network] Opponent selected: {msg.data}");
+                    LogDebug($"Opponent selected: {msg.data}");
                     OnOpponentCharacterSelected?.Invoke(msg.data);
                     break;
 
                 case "turn_change":
                     bool isMyTurn = msg.data == "true";
-                    Debug.Log($"[Network] Turn change - my turn: {isMyTurn}");
+                    LogDebug($"Turn change - my turn: {isMyTurn}");
                     OnTurnChanged?.Invoke(isMyTurn);
                     break;
 
@@ -406,7 +407,7 @@ namespace Networking
                     try
                     {
                         var qData = JsonUtility.FromJson<QuestionData>(msg.data);
-                        Debug.Log($"[Network] Question received: {qData.questionText}");
+                        LogDebug($"Question received: {qData.questionText}");
                         OnQuestionReceived?.Invoke(qData.questionText, qData.expectedAnswer);
                     }
                     catch (Exception ex)
@@ -417,7 +418,7 @@ namespace Networking
 
                 case "answer":
                     bool answer = msg.data == "true";
-                    Debug.Log($"[Network] Answer received: {answer}");
+                    LogDebug($"Answer received: {answer}");
                     OnAnswerReceived?.Invoke(answer);
                     break;
 
@@ -425,7 +426,7 @@ namespace Networking
                     try
                     {
                         var eData = JsonUtility.FromJson<EliminationData>(msg.data);
-                        Debug.Log($"[Network] Elimination: {eData.characterName} - {eData.eliminated}");
+                        LogDebug($"Elimination: {eData.characterName} - {eData.eliminated}");
                         OnEliminationReceived?.Invoke(eData.characterName, eData.eliminated);
                     }
                     catch (Exception ex)
@@ -435,7 +436,7 @@ namespace Networking
                     break;
 
                 case "guess":
-                    Debug.Log($"[Network] Opponent guess: {msg.data}");
+                    LogDebug($"Opponent guess: {msg.data}");
                     OnOpponentGuess?.Invoke(msg.data);
                     break;
 
@@ -455,15 +456,24 @@ namespace Networking
 
         private void SendMessage(NetworkMessage msg)
         {
-            if (!isConnected || networkStream == null) return;
+            if (!isConnected || networkStream == null)
+            {
+                LogDebug("Cannot send - not connected");
+                return;
+            }
 
             try
             {
                 string json = JsonUtility.ToJson(msg);
-                json += MESSAGE_END; // Add message end marker
-                byte[] data = Encoding.UTF8.GetBytes(json);
+                string fullMessage = json + MESSAGE_END;
+                byte[] data = Encoding.UTF8.GetBytes(fullMessage);
+
+                LogTraffic("SEND", fullMessage);
+
                 networkStream.Write(data, 0, data.Length);
                 networkStream.Flush();
+
+                LogDebug($"Sent message type: {msg.type}");
             }
             catch (Exception ex)
             {
@@ -483,14 +493,11 @@ namespace Networking
 
         #region Send Methods
 
-        /// <summary>
-        /// Sends character selection to opponent.
-        /// </summary>
         public void SendCharacterSelected(string characterId)
         {
             if (!isConnected) return;
 
-            Debug.Log($"[Network] Sending character: {characterId}");
+            LogDebug($"Sending character: {characterId}");
             SendMessage(new NetworkMessage
             {
                 type = "character_selected",
@@ -498,14 +505,11 @@ namespace Networking
             });
         }
 
-        /// <summary>
-        /// Sends turn change notification.
-        /// </summary>
         public void SendTurnChange(bool isMyTurnNow)
         {
             if (!isConnected) return;
 
-            Debug.Log($"[Network] Sending turn change: {isMyTurnNow}");
+            LogDebug($"Sending turn change: {isMyTurnNow}");
             SendMessage(new NetworkMessage
             {
                 type = "turn_change",
@@ -513,14 +517,11 @@ namespace Networking
             });
         }
 
-        /// <summary>
-        /// Sends a question to opponent.
-        /// </summary>
         public void SendQuestion(string questionText, bool expectedAnswer)
         {
             if (!isConnected) return;
 
-            Debug.Log($"[Network] Sending question: {questionText}");
+            LogDebug($"Sending question: {questionText}");
             SendMessage(new NetworkMessage
             {
                 type = "question",
@@ -532,14 +533,11 @@ namespace Networking
             });
         }
 
-        /// <summary>
-        /// Sends answer to question.
-        /// </summary>
         public void SendAnswer(bool answer)
         {
             if (!isConnected) return;
 
-            Debug.Log($"[Network] Sending answer: {answer}");
+            LogDebug($"Sending answer: {answer}");
             SendMessage(new NetworkMessage
             {
                 type = "answer",
@@ -547,14 +545,11 @@ namespace Networking
             });
         }
 
-        /// <summary>
-        /// Sends elimination update for a single character.
-        /// </summary>
         public void SendElimination(string characterName, bool eliminated)
         {
             if (!isConnected) return;
 
-            Debug.Log($"[Network] Sending elimination: {characterName} - {eliminated}");
+            LogDebug($"Sending elimination: {characterName} - {eliminated}");
             SendMessage(new NetworkMessage
             {
                 type = "elimination",
@@ -566,28 +561,22 @@ namespace Networking
             });
         }
 
-        /// <summary>
-        /// Sends elimination update for multiple characters.
-        /// </summary>
         public void SendEliminationList(List<string> eliminatedIds)
         {
             if (!isConnected) return;
 
-            Debug.Log($"[Network] Sending elimination list: {eliminatedIds.Count} characters");
+            LogDebug($"Sending elimination list: {eliminatedIds.Count} characters");
             foreach (var id in eliminatedIds)
             {
                 SendElimination(id, true);
             }
         }
 
-        /// <summary>
-        /// Sends guess to opponent.
-        /// </summary>
         public void SendGuess(string characterId)
         {
             if (!isConnected) return;
 
-            Debug.Log($"[Network] Sending guess: {characterId}");
+            LogDebug($"Sending guess: {characterId}");
             SendMessage(new NetworkMessage
             {
                 type = "guess",
@@ -595,14 +584,11 @@ namespace Networking
             });
         }
 
-        /// <summary>
-        /// Sends game over notification.
-        /// </summary>
         public void SendGameOver(bool iWon, string winnerCharacterId)
         {
             if (!isConnected) return;
 
-            Debug.Log($"[Network] Sending game over: {iWon}");
+            LogDebug($"Sending game over: {iWon}");
             SendMessage(new NetworkMessage
             {
                 type = "game_over",
@@ -625,7 +611,7 @@ namespace Networking
             {
                 if (networkStream != null && tcpClient != null && tcpClient.Connected)
                 {
-                    yield break; // Connection established
+                    yield break;
                 }
                 waitTime += 0.1f;
                 yield return new WaitForSeconds(0.1f);
@@ -657,9 +643,6 @@ namespace Networking
 
         #region IP Encoding
 
-        /// <summary>
-        /// Gets the local IP address of this device.
-        /// </summary>
         private string GetLocalIPAddress()
         {
             var host = Dns.GetHostEntry(Dns.GetHostName());
@@ -673,12 +656,8 @@ namespace Networking
             return "127.0.0.1";
         }
 
-        /// <summary>
-        /// Encodes an IP address and port to a 6-digit numeric code.
-        /// </summary>
         private string EncodeIPToCode(string ip, int port)
         {
-            // Parse IP octets
             string[] parts = ip.Split('.');
             if (parts.Length != 4)
             {
@@ -686,22 +665,15 @@ namespace Networking
                 return "000000";
             }
 
-            // Use last two octets to create a 6-digit code
-            // This works for most local networks (192.168.x.x)
             int third = int.Parse(parts[2]);
             int fourth = int.Parse(parts[3]);
 
-            // Encode: third octet (3 digits) + fourth octet (3 digits)
             string code = third.ToString("000") + fourth.ToString("000");
 
-            Debug.Log($"[Network] Encoded IP {ip} to code: {code}");
+            LogDebug($"Encoded IP {ip} to code: {code}");
             return code;
         }
 
-        /// <summary>
-        /// Decodes a 6-digit code back to an IP address.
-        /// Requires the host to be on the same subnet.
-        /// </summary>
         private string DecodeCodeToIP(string code)
         {
             if (code.Length != 6)
@@ -712,19 +684,16 @@ namespace Networking
 
             try
             {
-                // Parse the code
                 int third = int.Parse(code.Substring(0, 3));
                 int fourth = int.Parse(code.Substring(3, 3));
 
-                // Get local subnet prefix
                 string localIP = GetLocalIPAddress();
                 string[] parts = localIP.Split('.');
                 string subnetPrefix = parts[0] + "." + parts[1];
 
-                // Reconstruct host IP
                 string hostIP = $"{subnetPrefix}.{third}.{fourth}";
 
-                Debug.Log($"[Network] Decoded code {code} to IP: {hostIP}");
+                LogDebug($"Decoded code {code} to IP: {hostIP}");
                 return hostIP;
             }
             catch (Exception ex)
