@@ -17,7 +17,6 @@ public class QuestionBarController : MonoBehaviour
     [Header("Visual Settings")]
     [SerializeField] private Color normalColor = Color.white;
     [SerializeField] private Color disabledColor = Color.gray;
-    [SerializeField] private float animationSpeed = 0.2f;
 
     [Header("Question Counter")]
     [SerializeField] private TMP_Text questionCounterText;

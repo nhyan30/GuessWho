@@ -130,7 +130,7 @@ public class GameManager : MonoBehaviour
             NetworkManager.Instance.OnOpponentGuess += OnOpponentGuess;
             NetworkManager.Instance.OnGameOver += OnGameOver;
             NetworkManager.Instance.OnPlayerLeft += OnOpponentDisconnected;
-
+            
             LogDebug("Multiplayer events registered");
         }
     }
@@ -297,7 +297,7 @@ public class GameManager : MonoBehaviour
                 popup?.Hide();
                 if (currentGameMode == GameMode.Multiplayer && !isMyTurn)
                 {
-                    popup?.ShowMessage("Wait for your turn!");
+                    popup?.ShowMessage("Wait for your turn!", false);
                 }
                 else
                 {
@@ -440,7 +440,7 @@ public class GameManager : MonoBehaviour
             }
             else
             {
-                popup?.ShowMessage("Waiting for opponent to pick a character...");
+                popup?.ShowMessage("Waiting for opponent to pick a character...", false);
             }
         }
         else
@@ -554,7 +554,7 @@ public class GameManager : MonoBehaviour
         else
         {
             waitingForOpponentAnswer = true;
-            popup?.ShowMessage("Waiting for opponent to answer...");
+            popup?.ShowMessage("Waiting for opponent to answer...", false);
 
             bool expectedAnswer = currentQuestion.MatchesCharacter(opponentSelectedCharacter);
             LogDebug($"Sending question to opponent: {currentQuestion.QuestionText}");
@@ -595,7 +595,7 @@ public class GameManager : MonoBehaviour
 
         isInGuessMode = true;
         DisableQuestionBar();
-        popup?.ShowMessage("Click on a character to make your guess!");
+        popup?.ShowMessage("Click on a character to make your guess!", true);
     }
 
     private void ProcessPlayerGuess(SCR_Character guessedCharacter)
@@ -617,7 +617,7 @@ public class GameManager : MonoBehaviour
 
         popup?.ShowMessage(isCorrect
             ? $"Correct! It was {guessedCharacter.characterName}!"
-            : $"Wrong! It was {opponentSelectedCharacter.characterName}!");
+            : $"Wrong! It was {opponentSelectedCharacter.characterName}!", false);
 
         yield return new WaitForSeconds(2f);
 
@@ -643,7 +643,7 @@ public class GameManager : MonoBehaviour
     private void ShowWaitingForOpponentQuestion()
     {
         currentState = GameState.AITurn;
-        popup?.ShowMessage("Waiting for opponent to pick a question...");
+        popup?.ShowMessage("Waiting for opponent to pick a question...", false);
     }
 
     private void OnQuestionReceivedFromOpponent(string questionText, bool expectedAnswer)
@@ -702,7 +702,7 @@ public class GameManager : MonoBehaviour
 
     private void OnOpponentDisconnected()
     {
-        popup?.ShowMessage("Opponent disconnected!");
+        popup?.ShowMessage("Opponent disconnected!", false);
         Invoke(nameof(ReturnToMainMenu), 2f);
     }
 
@@ -819,12 +819,12 @@ public class GameManager : MonoBehaviour
 
         if (isCorrect)
         {
-            popup?.ShowMessage($"AI guessed: {guessedCharacter.characterName}\n\nAI Wins!");
+            popup?.ShowMessage($"AI guessed: {guessedCharacter.characterName}\n\nAI Wins!", false);
             Invoke(nameof(PlayerLoses), 2f);
         }
         else
         {
-            popup?.ShowMessage($"AI guessed wrong: {guessedCharacter.characterName}");
+            popup?.ShowMessage($"AI guessed wrong: {guessedCharacter.characterName}", false);
             Invoke(nameof(StartPlayerTurn), 2f);
         }
     }
@@ -835,12 +835,12 @@ public class GameManager : MonoBehaviour
 
         if (guessed == playerSelectedCharacter)
         {
-            popup?.ShowMessage($"Opponent guessed: {characterId}\n\nYou Lose!");
+            popup?.ShowMessage($"Opponent guessed: {characterId}\n\nYou Lose!", false);
             Invoke(nameof(PlayerLoses), 2f);
         }
         else
         {
-            popup?.ShowMessage($"Opponent guessed wrong: {characterId}");
+            popup?.ShowMessage($"Opponent guessed wrong: {characterId}", false);
             isMyTurn = true;
             Invoke(nameof(StartPlayerTurn), 2f);
         }

@@ -76,12 +76,12 @@ public class PopupController : MonoBehaviour
 
     #region Show Methods
 
-    public void ShowMessage(string message)
+    public void ShowMessage(string message, bool okay)
     {
         currentType = PopupType.Message;
         SetInfoText(message);
         SetCharacterImage(null);
-        SetButtons(true, false, true);
+        SetButtons(okay, false, okay);
         Show();
     }
 
@@ -143,7 +143,7 @@ public class PopupController : MonoBehaviour
         SetButtons(true, true, false, correctIsYes);
         Show();
     }
-
+        
     public void ShowGuessConfirm(SCR_Character character)
     {
         currentType = PopupType.GuessConfirm;
@@ -238,7 +238,7 @@ public enum PopupType
     QuestionSelect,
     AIThinking,
     AIAnswer,
-    AIQuestion,
+    AIQuestion, 
     GuessConfirm,
     GameOver
 }
