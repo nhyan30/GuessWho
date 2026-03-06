@@ -3129,6 +3129,22 @@ PrefabInstance:
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.size
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 7273895388089363575, guid: 224929460777bb541a9a4d6b5bdea44d, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7273895388089363575, guid: 224929460777bb541a9a4d6b5bdea44d, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7273895388089363575, guid: 224929460777bb541a9a4d6b5bdea44d, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7273895388089363575, guid: 224929460777bb541a9a4d6b5bdea44d, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 7324960023174984378, guid: 224929460777bb541a9a4d6b5bdea44d, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
@@ -6251,7 +6267,6 @@ MonoBehaviour:
   sendButton: {fileID: 1813563745}
   normalColor: {r: 1, g: 1, b: 1, a: 1}
   disabledColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-  animationSpeed: 0.2
   questionCounterText: {fileID: 0}
   showCounter: 1
 --- !u!1 &1658390813

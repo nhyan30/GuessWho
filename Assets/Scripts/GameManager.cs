@@ -8,6 +8,11 @@ using Networking;
 /// <summary>
 /// GameManager controls the Guess Who game flow.
 /// Supports both Single Player (vs AI) and Multiplayer modes.
+/// 
+/// Bug Fixes Implemented:
+/// 1. Wrong guess ends game immediately (player loses)
+/// 2. Character elimination uses coroutine for thinking + answer popup
+/// 3. Random room codes with IP address display for multiplayer
 /// </summary>
 public class GameManager : MonoBehaviour
 {
@@ -36,7 +41,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private TMP_Text opponentCharacterText;
 
     [Header("Debug")]
-    [SerializeField] private TMP_Text turnDebugText; // Shows whose turn it is
+    [SerializeField] private TMP_Text turnDebugText;
     [SerializeField] private bool enableDebugLogs = true;
 
     // Game mode
@@ -54,7 +59,7 @@ public class GameManager : MonoBehaviour
     private bool gameStarted = false;
 
     // Multiplayer turn tracking
-    [SerializeField] private bool isMyTurn = true; // Exposed for debugging
+    [SerializeField] private bool isMyTurn = true;
     private bool opponentCharacterPicked = false;
     private bool myCharacterPicked = false;
     private SCR_Question opponentQuestion;
@@ -76,7 +81,6 @@ public class GameManager : MonoBehaviour
 
     private void Update()
     {
-        // Update debug text
         if (turnDebugText != null && currentGameMode == GameMode.Multiplayer)
         {
             string turnInfo = isMyTurn ? "YOUR TURN" : "OPPONENT'S TURN";
@@ -106,7 +110,6 @@ public class GameManager : MonoBehaviour
 
         if (mode == GameMode.Multiplayer)
         {
-            // Host always goes first
             isMyTurn = NetworkManager.Instance.IsHost;
             LogDebug($"Is Host: {NetworkManager.Instance.IsHost}, isMyTurn: {isMyTurn}");
             SetupMultiplayerEvents();
@@ -130,7 +133,7 @@ public class GameManager : MonoBehaviour
             NetworkManager.Instance.OnOpponentGuess += OnOpponentGuess;
             NetworkManager.Instance.OnGameOver += OnGameOver;
             NetworkManager.Instance.OnPlayerLeft += OnOpponentDisconnected;
-            
+
             LogDebug("Multiplayer events registered");
         }
     }
@@ -307,8 +310,7 @@ public class GameManager : MonoBehaviour
 
             case PopupType.AIAnswer:
                 popup?.Hide();
-                EliminateCharactersFromAnswer();
-
+                // Elimination already happened during the coroutine
                 if (currentGameMode == GameMode.SinglePlayer)
                 {
                     StartAITurn();
@@ -545,11 +547,8 @@ public class GameManager : MonoBehaviour
 
         if (currentGameMode == GameMode.SinglePlayer)
         {
-            popup?.ShowAIThinking();
-            yield return new WaitForSeconds(1f);
-
-            bool answer = currentQuestion.MatchesCharacter(opponentSelectedCharacter);
-            popup?.ShowAIAnswer(answer);
+            // BUG FIX #2: Combined thinking + answer + elimination in one coroutine
+            yield return StartCoroutine(ShowThinkingAnswerAndEliminate());
         }
         else
         {
@@ -560,6 +559,61 @@ public class GameManager : MonoBehaviour
             LogDebug($"Sending question to opponent: {currentQuestion.QuestionText}");
             NetworkManager.Instance?.SendQuestion(currentQuestion.QuestionText, expectedAnswer);
         }
+    }
+
+    /// <summary>
+    /// BUG FIX #2: Shows thinking, then answer, then eliminates characters - all in one popup.
+    /// This creates a smooth flow where the player sees the opponent "thinking"
+    /// before getting the answer, without multiple popup windows.
+    /// </summary>
+    private IEnumerator ShowThinkingAnswerAndEliminate()
+    {
+        // Step 1: Show thinking popup
+        popup?.ShowAIThinking();
+        yield return new WaitForSeconds(1.5f);  // Thinking delay
+
+        // Step 2: Get the answer
+        bool answer = currentQuestion.MatchesCharacter(opponentSelectedCharacter);
+
+        // Step 3: Update popup to show answer (in same popup)
+        popup?.UpdateAIThinkingToAnswer(answer);
+        yield return new WaitForSeconds(0.5f);  // Let player read the answer
+
+        // Step 4: Eliminate characters with visual animation
+        yield return StartCoroutine(EliminateCharactersFromAnswerWithAnimation(answer));
+    }
+
+    /// <summary>
+    /// Eliminates characters from player's grid with visual animation.
+    /// </summary>
+    private IEnumerator EliminateCharactersFromAnswerWithAnimation(bool answerIsYes)
+    {
+        if (currentQuestion == null) yield break;
+
+        var toEliminate = CharacterFilter.GetCharactersToEliminate(
+            playerRemainingCharacters, currentQuestion, answerIsYes);
+
+        // Animate each elimination
+        foreach (var character in toEliminate)
+        {
+            foreach (var cell in playerCells)
+            {
+                if (cell.Character == character)
+                {
+                    cell.MarkAsEliminated(true);
+                    //yield return new WaitForSeconds(0.01f);
+                    break;
+                }
+            }
+        }
+
+        playerRemainingCharacters = CharacterFilter.GetRemainingCharacters(
+            playerRemainingCharacters, currentQuestion, answerIsYes);
+
+        LogDebug($"{playerRemainingCharacters.Count} characters remaining");
+
+        // Show the answer popup for player to acknowledge
+        popup?.ShowAIAnswer(answerIsYes);
     }
 
     private void EliminateCharactersFromAnswer()
@@ -603,6 +657,10 @@ public class GameManager : MonoBehaviour
         StartCoroutine(ProcessGuessCoroutine(guessedCharacter));
     }
 
+    /// <summary>
+    /// BUG FIX #1: Processes the player's guess.
+    /// If correct, player wins. If wrong, player loses immediately (game over).
+    /// </summary>
     private IEnumerator ProcessGuessCoroutine(SCR_Character guessedCharacter)
     {
         popup?.Hide();
@@ -615,6 +673,7 @@ public class GameManager : MonoBehaviour
             NetworkManager.Instance?.SendGuess(guessedCharacter.characterName);
         }
 
+        // Show the result message
         popup?.ShowMessage(isCorrect
             ? $"Correct! It was {guessedCharacter.characterName}!"
             : $"Wrong! It was {opponentSelectedCharacter.characterName}!", false);
@@ -622,17 +681,15 @@ public class GameManager : MonoBehaviour
         yield return new WaitForSeconds(2f);
 
         if (isCorrect)
+        {
+            // Player guessed correctly - they win!
             PlayerWins();
+        }
         else
         {
-            if (currentGameMode == GameMode.SinglePlayer)
-            {
-                StartAITurn();
-            }
-            else
-            {
-                SwitchTurns();
-            }
+            // BUG FIX #1: Wrong guess = player loses immediately
+            // Previously this would continue to AI turn, but now the game ends
+            PlayerLoses();
         }
     }
 
@@ -681,8 +738,18 @@ public class GameManager : MonoBehaviour
         LogDebug($"Received answer from opponent: {answer}");
 
         waitingForOpponentAnswer = false;
+
+        // BUG FIX #2: Combined answer + elimination for multiplayer too
+        StartCoroutine(ShowAnswerAndEliminateFromOpponent(answer));
+    }
+
+    private IEnumerator ShowAnswerAndEliminateFromOpponent(bool answer)
+    {
         popup?.Hide();
         popup?.ShowAIAnswer(answer);
+        yield return new WaitForSeconds(0.5f);
+
+        yield return StartCoroutine(EliminateCharactersFromAnswerWithAnimation(answer));
     }
 
     private void SwitchTurns()
