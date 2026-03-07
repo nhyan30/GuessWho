@@ -14,6 +14,7 @@ public class PopupController : MonoBehaviour
     [Header("UI Elements")]
     [SerializeField] private GameObject popupPanel;
     [SerializeField] private TMP_Text infoText;
+    [SerializeField] private GameObject infoGameObject;
     [SerializeField] private Image characterImage;
     [SerializeField] private Button okayButton;
     [SerializeField] private Button negateButton;
@@ -84,6 +85,7 @@ public class PopupController : MonoBehaviour
     public void ShowMessage(string message, bool showOkay)
     {
         currentType = PopupType.Message;
+        SetInfoText(true);
         SetInfoText(message);
         SetCharacterImage(null);
         HideAnswerDisplay();
@@ -94,6 +96,7 @@ public class PopupController : MonoBehaviour
     public void ShowCharacterSelect()
     {
         currentType = PopupType.CharacterSelect;
+        SetInfoText(true);
         SetInfoText("Select a Character");
         SetCharacterImage(null);
         HideAnswerDisplay();
@@ -104,6 +107,7 @@ public class PopupController : MonoBehaviour
     public void ShowCharacterAgree(SCR_Character character)
     {
         currentType = PopupType.CharacterAgree;
+        SetInfoText(true);
         currentCharacter = character;
         SetInfoText("Is that correct?");
         SetCharacterImage(character?.characterSprite);
@@ -115,6 +119,7 @@ public class PopupController : MonoBehaviour
     public void ShowQuestionSelect()
     {
         currentType = PopupType.QuestionSelect;
+        SetInfoText(true);
         SetInfoText("Select a Question to ask!");
         SetCharacterImage(null);
         HideAnswerDisplay();
@@ -129,8 +134,16 @@ public class PopupController : MonoBehaviour
     public void ShowAIThinking()
     {
         currentType = PopupType.AIThinking;
-        SetInfoText("Opponent is thinking...");
-        SetCharacterImage(null);
+        SetInfoText(true);
+        if (MainMenuController.Instance.isMultiplayer == false)
+        {
+            SetInfoText("AI is thinking...");
+        }
+        else
+        {
+            SetInfoText("Opponent is thinking...");
+        }
+            SetCharacterImage(null);
         HideAnswerDisplay();
         SetButtons(false, false, false);  // No buttons while thinking
         Show();
@@ -145,7 +158,8 @@ public class PopupController : MonoBehaviour
         currentType = PopupType.AIAnswer;
         lastAnswer = answer;
 
-        SetInfoText("");  // Clear the "thinking" text
+        //SetInfoText("");  // Clear the "thinking" text
+        SetInfoText(false);
         ShowAnswerDisplay(answer);
         SetButtons(true, false, true);  // Show OK button
     }
@@ -157,7 +171,8 @@ public class PopupController : MonoBehaviour
     {
         currentType = PopupType.AIAnswer;
         lastAnswer = answer;
-        SetInfoText("");
+        //SetInfoText("");
+        SetInfoText(false);
         SetCharacterImage(null);
         ShowAnswerDisplay(answer);
         SetButtons(true, false, true);
@@ -171,10 +186,18 @@ public class PopupController : MonoBehaviour
     public void ShowAIQuestion(SCR_Question question, bool correctIsYes)
     {
         currentType = PopupType.AIQuestion;
+        SetInfoText(true);
         currentQuestion = question;
         correctAnswerIsYes = correctIsYes;
 
-        SetInfoText($"Opponent asks:\n{question.QuestionText}");
+        if (MainMenuController.Instance.isMultiplayer == false)
+        {
+            SetInfoText($"AI asks:\n{question.QuestionText}");
+        }
+        else
+        {
+            SetInfoText($"Opponent asks:\n{question.QuestionText}");
+        }
         SetCharacterImage(null);
         HideAnswerDisplay();
         SetButtons(true, true, false, correctIsYes);
@@ -184,6 +207,7 @@ public class PopupController : MonoBehaviour
     public void ShowGuessConfirm(SCR_Character character)
     {
         currentType = PopupType.GuessConfirm;
+        SetInfoText(true);
         currentCharacter = character;
         SetInfoText("Make your final guess?");
         SetCharacterImage(character?.characterSprite);
@@ -195,6 +219,7 @@ public class PopupController : MonoBehaviour
     public void ShowGameOver(bool playerWon, SCR_Character opponentCharacter)
     {
         currentType = PopupType.GameOver;
+        SetInfoText(true);
         SetInfoText(playerWon ? "You Win!" : "You Lose!");
         SetCharacterImage(opponentCharacter?.characterSprite);
         HideAnswerDisplay();
@@ -228,6 +253,12 @@ public class PopupController : MonoBehaviour
     {
         if (infoText != null)
             infoText.text = text;
+    }
+
+    private void SetInfoText(bool active)
+    {
+        if (infoGameObject != null)
+            infoGameObject.SetActive(active);
     }
 
     private void SetCharacterImage(Sprite sprite)

@@ -44,7 +44,7 @@ public class MainMenuController : MonoBehaviour
     [SerializeField] private float fadeDuration = 0.2f;
 
     // State
-    private bool isMultiplayer = false;
+    public bool isMultiplayer = false;
     private Coroutine waitingCoroutine;
 
     private void Awake()
