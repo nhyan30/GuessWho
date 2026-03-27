@@ -192,11 +192,13 @@ public class PopupController : MonoBehaviour
 
         if (MainMenuController.Instance.isMultiplayer == false)
         {
-            SetInfoText($"AI asks:\n{question.QuestionText}");
+            //SetInfoText($"AI asks:\n{question.QuestionText}");
+            SetInfoText($"{question.QuestionText}");
         }
         else
         {
-            SetInfoText($"Opponent asks:\n{question.QuestionText}");
+            //SetInfoText($"Opponent asks:\n{question.QuestionText}");
+            SetInfoText($"{question.QuestionText}");
         }
         SetCharacterImage(null);
         HideAnswerDisplay();
