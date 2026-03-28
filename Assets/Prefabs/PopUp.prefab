@@ -600,6 +600,7 @@ GameObject:
   - component: {fileID: 5803944510162723713}
   - component: {fileID: 6254045325105745789}
   - component: {fileID: 4226100196564114156}
+  - component: {fileID: 8514081737030633321}
   m_Layer: 5
   m_Name: Window
   m_TagString: Untagged
@@ -651,7 +652,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0.497775, g: 0.6483624, b: 0.8867924, a: 1}
+  m_Color: {r: 0.5254902, g: 0.6627451, b: 0.8784314, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -694,6 +695,21 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
+--- !u!114 &8514081737030633321
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6307751559065973089}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_EffectColor: {r: 0.30588236, g: 0.5411765, b: 0.9137255, a: 1}
+  m_EffectDistance: {x: 10, y: 10}
+  m_UseGraphicAlpha: 1
 --- !u!1 &6767357504148054908
 GameObject:
   m_ObjectHideFlags: 0

@@ -16,12 +16,12 @@ public class MainMenuController : MonoBehaviour
     [Header("Canvas Groups")]
     [SerializeField] private CanvasGroup mainMenuCanvasGroup;
     [SerializeField] private CanvasGroup gameCanvasGroup;
-    [SerializeField] private CanvasGroup findGamePanel;
+    [SerializeField] private CanvasGroup HostGamePanel;
     [SerializeField] private CanvasGroup joinGamePanel;
 
     [Header("Main Menu Buttons")]
     [SerializeField] private Button singlePlayerButton;
-    [SerializeField] private Button findGameButton;
+    [SerializeField] private Button HostGameButton;
     [SerializeField] private Button joinGameButton;
 
     [Header("Find Game Panel")]
@@ -80,7 +80,7 @@ public class MainMenuController : MonoBehaviour
         }
 
         // Panels hidden
-        HidePanel(findGamePanel);
+        HidePanel(HostGamePanel);
         HidePanel(joinGamePanel);
 
         // Clear error text
@@ -94,8 +94,8 @@ public class MainMenuController : MonoBehaviour
         if (singlePlayerButton != null)
             singlePlayerButton.onClick.AddListener(OnSinglePlayerClicked);
 
-        if (findGameButton != null)
-            findGameButton.onClick.AddListener(OnFindGameClicked);
+        if (HostGameButton != null)
+            HostGameButton.onClick.AddListener(OnFindGameClicked);
 
         if (joinGameButton != null)
             joinGameButton.onClick.AddListener(OnJoinGameClicked);
@@ -142,7 +142,7 @@ public class MainMenuController : MonoBehaviour
         Debug.Log("[Menu] Finding game - creating room");
 
         // Show find game panel
-        ShowPanel(findGamePanel);
+        ShowPanel(HostGamePanel);
 
         // Create room via network manager
         if (Networking.NetworkManager.Instance != null)
@@ -192,7 +192,7 @@ public class MainMenuController : MonoBehaviour
             waitingCoroutine = null;
         }
 
-        HidePanel(findGamePanel);
+        HidePanel(HostGamePanel);
     }
 
     private void OnJoinConfirmClicked()
@@ -275,7 +275,7 @@ public class MainMenuController : MonoBehaviour
 
         // Hide join panel, show waiting
         HidePanel(joinGamePanel);
-        ShowPanel(findGamePanel);
+        ShowPanel(HostGamePanel);
 
         if (roomCodeText != null)
             roomCodeText.text = "Connected!";
@@ -305,7 +305,7 @@ public class MainMenuController : MonoBehaviour
         }
 
         // Transition to game
-        HidePanel(findGamePanel);
+        HidePanel(HostGamePanel);
         HidePanel(joinGamePanel);
 
         Fade(mainMenuCanvasGroup, false, () =>
