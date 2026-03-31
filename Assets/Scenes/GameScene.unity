@@ -3218,6 +3218,22 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4978922916764949763, guid: 224929460777bb541a9a4d6b5bdea44d, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4978922916764949763, guid: 224929460777bb541a9a4d6b5bdea44d, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4978922916764949763, guid: 224929460777bb541a9a4d6b5bdea44d, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4978922916764949763, guid: 224929460777bb541a9a4d6b5bdea44d, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6490009530820727108, guid: 224929460777bb541a9a4d6b5bdea44d, type: 3}
       propertyPath: m_Colors.m_DisabledColor.a
       value: 1
@@ -3295,6 +3311,22 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7324960023174984378, guid: 224929460777bb541a9a4d6b5bdea44d, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8355233016049060542, guid: 224929460777bb541a9a4d6b5bdea44d, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8355233016049060542, guid: 224929460777bb541a9a4d6b5bdea44d, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8355233016049060542, guid: 224929460777bb541a9a4d6b5bdea44d, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8355233016049060542, guid: 224929460777bb541a9a4d6b5bdea44d, type: 3}
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
@@ -5039,6 +5071,7 @@ MonoBehaviour:
   selectedCharacterText: {fileID: 478521742}
   opponentCharacterImage: {fileID: 274144776}
   opponentCharacterText: {fileID: 1587846486}
+  opponentLabelText: {fileID: 114302882}
   turnDebugText: {fileID: 811806744}
   enableDebugLogs: 1
   isMyTurn: 1
