@@ -8,11 +8,6 @@ using Networking;
 /// <summary>
 /// GameManager controls the Guess Who game flow.
 /// Supports both Single Player (vs AI) and Multiplayer modes.
-/// 
-/// Bug Fixes Implemented:
-/// 1. Wrong guess ends game immediately (player loses)
-/// 2. Character elimination uses coroutine for thinking + answer popup
-/// 3. Random room codes with IP address display for multiplayer
 /// </summary>
 public class GameManager : MonoBehaviour
 {

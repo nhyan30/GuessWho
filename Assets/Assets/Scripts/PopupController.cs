@@ -222,7 +222,7 @@ public class PopupController : MonoBehaviour
     {
         currentType = PopupType.GameOver;
         SetInfoText(true);
-        SetInfoText(playerWon ? "You Win!" : "You Lose!");
+        SetInfoText(playerWon ? "You Win!" : "You Lose!" + ", my character is ");
         SetCharacterImage(opponentCharacter?.characterSprite);
         HideAnswerDisplay();
         SetButtons(true, false, true);

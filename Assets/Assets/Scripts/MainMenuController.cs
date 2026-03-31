@@ -80,8 +80,8 @@ public class MainMenuController : MonoBehaviour
         }
 
         // Panels hidden
-        HidePanel(HostGamePanel);
-        HidePanel(joinGamePanel);
+        Fade(HostGamePanel, false);
+        Fade(joinGamePanel, false);
 
         // Clear error text
         if (joinErrorText != null)
@@ -142,7 +142,7 @@ public class MainMenuController : MonoBehaviour
         Debug.Log("[Menu] Finding game - creating room");
 
         // Show find game panel
-        ShowPanel(HostGamePanel);
+        Fade(HostGamePanel, true);
 
         // Create room via network manager
         if (Networking.NetworkManager.Instance != null)
@@ -171,7 +171,7 @@ public class MainMenuController : MonoBehaviour
             joinHintText.text = "Make sure you're on the same WiFi network as the host";
 
         // Show join game panel
-        ShowPanel(joinGamePanel);
+        Fade(joinGamePanel, true);
     }
 
     private void OnCancelFindClicked()
@@ -192,7 +192,7 @@ public class MainMenuController : MonoBehaviour
             waitingCoroutine = null;
         }
 
-        HidePanel(HostGamePanel);
+        Fade(HostGamePanel, false);
     }
 
     private void OnJoinConfirmClicked()
@@ -229,7 +229,7 @@ public class MainMenuController : MonoBehaviour
             Networking.NetworkManager.Instance.LeaveRoom();
         }
 
-        HidePanel(joinGamePanel);
+        Fade(joinGamePanel, false);
     }
 
     private void OnCodeInputChanged(string value)
@@ -274,8 +274,8 @@ public class MainMenuController : MonoBehaviour
         currentRoomCode = codeInputField?.text ?? "";
 
         // Hide join panel, show waiting
-        HidePanel(joinGamePanel);
-        ShowPanel(HostGamePanel);
+        Fade(joinGamePanel, false);
+        Fade(HostGamePanel, true);
 
         if (roomCodeText != null)
             roomCodeText.text = "Connected!";
@@ -305,8 +305,8 @@ public class MainMenuController : MonoBehaviour
         }
 
         // Transition to game
-        HidePanel(HostGamePanel);
-        HidePanel(joinGamePanel);
+        Fade(HostGamePanel, false);
+        Fade(joinGamePanel, false);
 
         Fade(mainMenuCanvasGroup, false, () =>
         {
@@ -364,23 +364,6 @@ public class MainMenuController : MonoBehaviour
                 callback?.Invoke();
             });
     }
-
-    private void ShowPanel(CanvasGroup panel)
-    {
-        if (panel == null) return;
-        panel.gameObject.SetActive(true);
-        panel.alpha = 1f;
-        panel.blocksRaycasts = true;
-    }
-
-    private void HidePanel(CanvasGroup panel)
-    {
-        if (panel == null) return;
-        panel.alpha = 0f;
-        panel.blocksRaycasts = false;
-        panel.gameObject.SetActive(false);
-    }
-
     #endregion
 
     #region Public Methods
