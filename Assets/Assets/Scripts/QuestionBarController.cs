@@ -69,29 +69,32 @@ public class QuestionBarController : MonoBehaviour
     {
         if (!isActive || QuestionManager.Instance == null) return;
 
+        // Play button sound
+        AudioManager.Instance?.PlayButtonClick();
+
         currentQuestion = QuestionManager.Instance.GetPreviousQuestion();
         UpdateDisplay();
         OnQuestionChanged?.Invoke(currentQuestion);
-
-        // Optional: Add sound effect or animation
-        PlayNavigationFeedback();
     }
 
     private void OnRightArrowClicked()
     {
         if (!isActive || QuestionManager.Instance == null) return;
 
+        // Play button sound
+        AudioManager.Instance?.PlayButtonClick();
+
         currentQuestion = QuestionManager.Instance.GetNextQuestion();
         UpdateDisplay();
         OnQuestionChanged?.Invoke(currentQuestion);
-
-        // Optional: Add sound effect or animation
-        PlayNavigationFeedback();
     }
 
     private void OnSendButtonClicked()
     {
         if (!isActive || currentQuestion == null) return;
+
+        // Play button sound
+        AudioManager.Instance?.PlayButtonClick();
 
         // Mark question as asked
         QuestionManager.Instance.MarkQuestionAsAsked(currentQuestion);
@@ -161,15 +164,6 @@ public class QuestionBarController : MonoBehaviour
     public void SetVisible(bool visible)
     {
         gameObject.SetActive(visible);
-    }
-    #endregion
-
-    #region Feedback
-    private void PlayNavigationFeedback()
-    {
-        // Placeholder for sound/animation feedback
-        // Add your own implementation:
-        // AudioManager.Instance?.PlayClickSound();
     }
     #endregion
 

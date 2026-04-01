@@ -301,7 +301,7 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 3775982927184831184}
-  m_Father: {fileID: 8792319967703600732}
+  m_Father: {fileID: 2882539136034467769}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
@@ -329,7 +329,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0.47412673, g: 0.8773585, b: 0.32694018, a: 1}
+  m_Color: {r: 0.8784314, g: 0.43529412, b: 0.32694018, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -389,19 +389,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 3165292007109413812}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 8754559383509387920}
-        m_TargetAssemblyTypeName: UnityEngine.GameObject, UnityEngine
-        m_MethodName: SetActive
-        m_Mode: 6
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
 --- !u!1 &779237713466495810
 GameObject:
   m_ObjectHideFlags: 0
@@ -708,19 +696,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 194951183736090383}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 8754559383509387920}
-        m_TargetAssemblyTypeName: UnityEngine.GameObject, UnityEngine
-        m_MethodName: SetActive
-        m_Mode: 6
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
 --- !u!1 &4337485633404619408
 GameObject:
   m_ObjectHideFlags: 0
@@ -788,8 +764,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Restart
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 158608b031a9e3740bf2591e8623b9a8, type: 2}
+  m_sharedMaterial: {fileID: -171090993086729772, guid: 158608b031a9e3740bf2591e8623b9a8, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -893,8 +869,6 @@ RectTransform:
   - {fileID: 7273895388089363575}
   - {fileID: 9093714904593488753}
   - {fileID: 2882539136034467769}
-  - {fileID: 8355233016049060542}
-  - {fileID: 4978922916764949763}
   m_Father: {fileID: 965208695066064198}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
@@ -1012,6 +986,8 @@ RectTransform:
   m_Children:
   - {fileID: 2121490860454696060}
   - {fileID: 774316318733904667}
+  - {fileID: 8355233016049060542}
+  - {fileID: 4978922916764949763}
   m_Father: {fileID: 8792319967703600732}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -1077,7 +1053,7 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 3731791338252473337}
-  m_Father: {fileID: 8792319967703600732}
+  m_Father: {fileID: 2882539136034467769}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
@@ -1165,19 +1141,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 4305500288702150095}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 8754559383509387920}
-        m_TargetAssemblyTypeName: UnityEngine.GameObject, UnityEngine
-        m_MethodName: SetActive
-        m_Mode: 6
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
 --- !u!1 &8222954677923575711
 GameObject:
   m_ObjectHideFlags: 0
@@ -1482,8 +1446,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Exit
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 158608b031a9e3740bf2591e8623b9a8, type: 2}
+  m_sharedMaterial: {fileID: -171090993086729772, guid: 158608b031a9e3740bf2591e8623b9a8, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []

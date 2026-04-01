@@ -104,6 +104,9 @@ public class GameManager : MonoBehaviour
 
         LogDebug($"Starting {mode} game");
 
+        // Notify AudioManager that we're in gameplay (reduces music volume)
+        AudioManager.Instance?.EnterGameplay();
+
         // Update opponent label based on game mode
         UpdateOpponentLabel();
 
@@ -188,12 +191,16 @@ public class GameManager : MonoBehaviour
         QuestionManager.Instance?.ClearAskedHistory();
         AIController.Instance?.ResetAI();
 
+        // Notify AudioManager that we're exiting gameplay (restores music volume)
+        AudioManager.Instance?.ExitGameplay();
+
         MainMenuController.Instance?.ReturnToMainMenu();
     }
 
     /// <summary>
     /// Restarts the current single player game.
     /// Called from Game Over popup's Restart button.
+    /// Resets both player and AI character displays.
     /// </summary>
     public void RestartGame()
     {
@@ -206,6 +213,9 @@ public class GameManager : MonoBehaviour
 
         popup?.Hide();
 
+        // Reset player and opponent character displays
+        ResetCharacterDisplays();
+
         foreach (var cell in playerCells)
             cell.MarkAsEliminated(false);
 
@@ -217,6 +227,34 @@ public class GameManager : MonoBehaviour
 
         // Start a new single player game
         BeginGame(GameMode.SinglePlayer);
+    }
+
+    /// <summary>
+    /// Resets both player and opponent character displays to hidden state.
+    /// </summary>
+    private void ResetCharacterDisplays()
+    {
+        // Reset player's character display
+        if (selectedCharacterImage != null)
+        {
+            selectedCharacterImage.sprite = null;
+            selectedCharacterImage.gameObject.SetActive(false);
+        }
+        if (selectedCharacterText != null)
+        {
+            selectedCharacterText.text = "";
+        }
+
+        // Reset opponent's character display
+        if (opponentCharacterImage != null)
+        {
+            opponentCharacterImage.sprite = null;
+            opponentCharacterImage.gameObject.SetActive(false);
+        }
+        if (opponentCharacterText != null)
+        {
+            opponentCharacterText.text = "";
+        }
     }
 
     private void LogDebug(string message)
@@ -243,8 +281,8 @@ public class GameManager : MonoBehaviour
             popup.OnOkayClicked += OnPopupOkay;
             popup.OnNegateClicked += OnPopupNegate;
             popup.OnAnswerClicked += OnPopupAnswer;
-            popup.OnRestartClicked += OnPopupRestart;       // New: Restart button
-            popup.OnMainMenuClicked += OnPopupMainMenu;     // New: Main Menu button
+            popup.OnRestartClicked += OnPopupRestart;
+            popup.OnMainMenuClicked += OnPopupMainMenu;
         }
 
         if (questionBar != null)
@@ -330,6 +368,9 @@ public class GameManager : MonoBehaviour
         PopupType popupType = popup.GetCurrentType();
         LogDebug($"Popup Okay clicked: {popupType}");
 
+        // Play button sound
+        AudioManager.Instance?.PlayButtonClick();
+
         switch (popupType)
         {
             case PopupType.CharacterSelect:
@@ -387,6 +428,9 @@ public class GameManager : MonoBehaviour
     {
         PopupType popupType = popup.GetCurrentType();
 
+        // Play button sound
+        AudioManager.Instance?.PlayButtonClick();
+
         switch (popupType)
         {
             case PopupType.CharacterAgree:
@@ -408,6 +452,9 @@ public class GameManager : MonoBehaviour
 
     private void OnPopupAnswer(bool answer)
     {
+        // Play button sound
+        AudioManager.Instance?.PlayButtonClick();
+
         if (currentState == GameState.AIQuestion)
         {
             popup?.Hide();
@@ -434,24 +481,18 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Called when Restart button is clicked in Game Over popup.
-    /// Only available in single player mode.
-    /// </summary>
     private void OnPopupRestart()
     {
         LogDebug("Restart button clicked");
+        AudioManager.Instance?.PlayButtonClick();
         popup?.Hide();
         RestartGame();
     }
 
-    /// <summary>
-    /// Called when Main Menu button is clicked in Game Over popup.
-    /// Available in both single player and multiplayer modes.
-    /// </summary>
     private void OnPopupMainMenu()
     {
         LogDebug("Main Menu button clicked");
+        AudioManager.Instance?.PlayButtonClick();
         popup?.Hide();
         ReturnToMainMenu();
     }
@@ -627,29 +668,19 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Shows thinking, then answer, then eliminates characters - all in one popup.
-    /// </summary>
     private IEnumerator ShowThinkingAnswerAndEliminate()
     {
-        // Step 1: Show thinking popup
         popup?.ShowAIThinking();
-        yield return new WaitForSeconds(1.5f);  // Thinking delay
+        yield return new WaitForSeconds(1.5f);
 
-        // Step 2: Get the answer
         bool answer = currentQuestion.MatchesCharacter(opponentSelectedCharacter);
 
-        // Step 3: Update popup to show answer (in same popup)
         popup?.UpdateAIThinkingToAnswer(answer);
-        yield return new WaitForSeconds(0.5f);  // Let player read the answer
+        yield return new WaitForSeconds(0.5f);
 
-        // Step 4: Eliminate characters with visual animation
         yield return StartCoroutine(EliminateCharactersFromAnswerWithAnimation(answer));
     }
 
-    /// <summary>
-    /// Eliminates characters from player's grid with visual animation.
-    /// </summary>
     private IEnumerator EliminateCharactersFromAnswerWithAnimation(bool answerIsYes)
     {
         if (currentQuestion == null) yield break;
@@ -657,7 +688,6 @@ public class GameManager : MonoBehaviour
         var toEliminate = CharacterFilter.GetCharactersToEliminate(
             playerRemainingCharacters, currentQuestion, answerIsYes);
 
-        // Animate each elimination
         foreach (var character in toEliminate)
         {
             foreach (var cell in playerCells)
@@ -675,35 +705,13 @@ public class GameManager : MonoBehaviour
 
         LogDebug($"{playerRemainingCharacters.Count} characters remaining");
 
-        // Show the answer popup for player to acknowledge
         popup?.ShowAIAnswer(answerIsYes);
-    }
-
-    private void EliminateCharactersFromAnswer()
-    {
-        if (currentQuestion == null) return;
-
-        bool answerIsYes = popup.GetLastAnswer();
-
-        var toEliminate = CharacterFilter.GetCharactersToEliminate(
-            playerRemainingCharacters, currentQuestion, answerIsYes);
-
-        foreach (var cell in playerCells)
-        {
-            if (toEliminate.Contains(cell.Character))
-            {
-                cell.MarkAsEliminated(true);
-            }
-        }
-
-        playerRemainingCharacters = CharacterFilter.GetRemainingCharacters(
-            playerRemainingCharacters, currentQuestion, answerIsYes);
-
-        LogDebug($"{playerRemainingCharacters.Count} characters remaining");
     }
 
     private void OnDoAGuessPressed()
     {
+        AudioManager.Instance?.PlayButtonClick();
+
         if (currentGameMode == GameMode.Multiplayer && !isMyTurn)
         {
             LogDebug("Cannot guess on opponent's turn!");
@@ -720,11 +728,6 @@ public class GameManager : MonoBehaviour
         StartCoroutine(ProcessGuessCoroutine(guessedCharacter));
     }
 
-    /// <summary>
-    /// Processes the player's guess with a SINGLE merged popup.
-    /// Shows win/lose result directly with the opponent's character.
-    /// No separate "Correct!" or "Wrong!" popup before the Game Over popup.
-    /// </summary>
     private IEnumerator ProcessGuessCoroutine(SCR_Character guessedCharacter)
     {
         popup?.Hide();
@@ -737,20 +740,16 @@ public class GameManager : MonoBehaviour
             NetworkManager.Instance?.SendGuess(guessedCharacter.characterName);
         }
 
-        // Small delay before showing result
         yield return new WaitForSeconds(0.3f);
 
-        // Show the opponent's character
         ShowOpponentCharacter();
 
         if (isCorrect)
         {
-            // Player guessed correctly - they win!
             PlayerWins();
         }
         else
         {
-            // Wrong guess = player loses immediately
             PlayerLoses();
         }
     }
@@ -801,7 +800,6 @@ public class GameManager : MonoBehaviour
 
         waitingForOpponentAnswer = false;
 
-        // Combined answer + elimination for multiplayer
         StartCoroutine(ShowAnswerAndEliminateFromOpponent(answer));
     }
 
@@ -942,18 +940,24 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Processes the AI's guess. Shows the guessed character's sprite.
+    /// If correct, AI wins. If wrong, player's turn continues.
+    /// </summary>
     private void ProcessAIGuess(SCR_Character guessedCharacter)
     {
         bool isCorrect = guessedCharacter == playerSelectedCharacter;
 
         if (isCorrect)
         {
-            popup?.ShowMessage($"AI guessed: {guessedCharacter.characterName}\n\nAI Wins!", false);
+            // Show AI's guess with character sprite, then show game over
+            popup?.ShowAIGuessResult(guessedCharacter, true);
             Invoke(nameof(PlayerLoses), 2f);
         }
         else
         {
-            popup?.ShowMessage($"AI guessed wrong: {guessedCharacter.characterName}", false);
+            // Show AI's wrong guess with character sprite
+            popup?.ShowAIGuessResult(guessedCharacter, false);
             Invoke(nameof(StartPlayerTurn), 2f);
         }
     }
@@ -994,14 +998,12 @@ public class GameManager : MonoBehaviour
     private void PlayerWins()
     {
         currentState = GameState.GameOver;
-        // Pass isMultiplayer to show appropriate buttons
         popup?.ShowGameOver(true, opponentSelectedCharacter, currentGameMode == GameMode.Multiplayer);
     }
 
     private void PlayerLoses()
     {
         currentState = GameState.GameOver;
-        // Pass isMultiplayer to show appropriate buttons
         popup?.ShowGameOver(false, opponentSelectedCharacter, currentGameMode == GameMode.Multiplayer);
     }
 

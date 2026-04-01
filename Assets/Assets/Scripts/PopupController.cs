@@ -22,8 +22,8 @@ public class PopupController : MonoBehaviour
     [Header("Buttons")]
     [SerializeField] private Button okayButton;
     [SerializeField] private Button negateButton;
-    [SerializeField] private Button restartButton;      // New: Restart button for single player
-    [SerializeField] private Button mainMenuButton;     // New: Main Menu button
+    [SerializeField] private Button restartButton;
+    [SerializeField] private Button mainMenuButton;
     [SerializeField] private GameObject buttonsContainer;
 
     [Header("Answer Display")]
@@ -41,8 +41,8 @@ public class PopupController : MonoBehaviour
     public event Action OnOkayClicked;
     public event Action OnNegateClicked;
     public event Action<bool> OnAnswerClicked;
-    public event Action OnRestartClicked;      // New: Restart event
-    public event Action OnMainMenuClicked;     // New: Main Menu event
+    public event Action OnRestartClicked;
+    public event Action OnMainMenuClicked;
 
     private void Awake()
     {
@@ -85,7 +85,6 @@ public class PopupController : MonoBehaviour
             });
         }
 
-        // New: Setup Restart and Main Menu buttons
         if (restartButton != null)
         {
             restartButton.onClick.AddListener(() =>
@@ -154,10 +153,6 @@ public class PopupController : MonoBehaviour
         Show();
     }
 
-    /// <summary>
-    /// Shows thinking animation (for combined thinking + answer flow).
-    /// Use UpdateAIThinkingToAnswer() to transition to showing the answer.
-    /// </summary>
     public void ShowAIThinking()
     {
         currentType = PopupType.AIThinking;
@@ -173,14 +168,10 @@ public class PopupController : MonoBehaviour
         SetCharacterImage(null);
         HideAnswerDisplay();
         HideGameOverButtons();
-        SetButtons(false, false, false);  // No buttons while thinking
+        SetButtons(false, false, false);
         Show();
     }
 
-    /// <summary>
-    /// Transitions the thinking popup to show the answer.
-    /// Called by GameManager after the thinking delay.
-    /// </summary>
     public void UpdateAIThinkingToAnswer(bool answer)
     {
         currentType = PopupType.AIAnswer;
@@ -189,12 +180,9 @@ public class PopupController : MonoBehaviour
         SetInfoText(false);
         ShowAnswerDisplay(answer);
         HideGameOverButtons();
-        SetButtons(true, false, true);  // Show OK button
+        SetButtons(true, false, true);
     }
 
-    /// <summary>
-    /// Shows the AI's answer directly (without thinking animation).
-    /// </summary>
     public void ShowAIAnswer(bool answer)
     {
         currentType = PopupType.AIAnswer;
@@ -207,10 +195,6 @@ public class PopupController : MonoBehaviour
         Show();
     }
 
-    /// <summary>
-    /// Shows when AI/opponent asks a question.
-    /// Player must answer Yes or No.
-    /// </summary>
     public void ShowAIQuestion(SCR_Question question, bool correctIsYes)
     {
         currentType = PopupType.AIQuestion;
@@ -247,36 +231,53 @@ public class PopupController : MonoBehaviour
     }
 
     /// <summary>
-    /// Shows the Game Over popup with appropriate buttons.
-    /// Single Player: Shows Restart and Main Menu buttons
-    /// Multiplayer: Shows only Main Menu button
+    /// Shows the AI's guess result with the guessed character's sprite.
+    /// Format: "AI guessed: [name]" + character image + "AI Wins!" or wrong message.
     /// </summary>
+    public void ShowAIGuessResult(SCR_Character guessedCharacter, bool isCorrect)
+    {
+        currentType = PopupType.Message;
+        SetInfoText(true);
+
+        if (isCorrect)
+        {
+            SetInfoText($"AI guessed: {guessedCharacter.characterName}\nAI Wins!");
+        }
+        else
+        {
+            SetInfoText($"AI guessed wrong: {guessedCharacter.characterName}");
+        }
+
+        // Show the guessed character's sprite
+        SetCharacterImage(guessedCharacter?.characterSprite);
+        HideAnswerDisplay();
+        HideGameOverButtons();
+        SetButtons(true, false, true);
+        Show();
+    }
+
     public void ShowGameOver(bool playerWon, SCR_Character opponentCharacter, bool isMultiplayer)
     {
         currentType = PopupType.GameOver;
         SetInfoText(true);
 
-        // Build the result message
         string message = playerWon
-            ? "You Win!"
+            ? $"You Win!\nMy character is {opponentCharacter.characterName}"
             : $"You Lose!\nMy character is {opponentCharacter.characterName}";
 
         SetInfoText(message);
         SetCharacterImage(opponentCharacter?.characterSprite);
         HideAnswerDisplay();
 
-        // Hide the default okay/negate buttons
         SetButtons(false, false, false);
 
-        // Show appropriate Game Over buttons based on game mode
-        ShowGameOverButtons(!isMultiplayer);  // Show restart only in single player
+        buttonsContainer.SetActive(true);
+
+        ShowGameOverButtons(!isMultiplayer);
 
         Show();
     }
 
-    /// <summary>
-    /// Shows the Game Over buttons (Restart for single player, Main Menu for both modes).
-    /// </summary>
     private void ShowGameOverButtons(bool showRestart)
     {
         if (restartButton != null)
@@ -286,9 +287,6 @@ public class PopupController : MonoBehaviour
             mainMenuButton.gameObject.SetActive(true);
     }
 
-    /// <summary>
-    /// Hides the Game Over specific buttons.
-    /// </summary>
     private void HideGameOverButtons()
     {
         if (restartButton != null)
@@ -342,9 +340,6 @@ public class PopupController : MonoBehaviour
             characterImage.sprite = sprite;
     }
 
-    /// <summary>
-    /// Shows the answer display (Yes! or No! with appropriate styling).
-    /// </summary>
     private void ShowAnswerDisplay(bool answer)
     {
         if (answerDisplayContainer != null)
@@ -363,9 +358,6 @@ public class PopupController : MonoBehaviour
             answerDisplayContainer.SetActive(false);
     }
 
-    /// <summary>
-    /// Configures the button visibility and interactability.
-    /// </summary>
     private void SetButtons(bool showOkay, bool showNegate, bool bothInteractable, bool correctIsYes = true)
     {
         if (okayButton != null)
@@ -373,7 +365,6 @@ public class PopupController : MonoBehaviour
             okayButton.gameObject.SetActive(showOkay);
             okayButton.interactable = bothInteractable || correctIsYes;
 
-            // Update button text for AI question
             if (currentType == PopupType.AIQuestion && showOkay)
             {
                 var btnText = okayButton.GetComponentInChildren<TMP_Text>();
@@ -381,7 +372,6 @@ public class PopupController : MonoBehaviour
             }
             else if (showOkay)
             {
-                // Reset to default "OK" text for other popup types
                 var btnText = okayButton.GetComponentInChildren<TMP_Text>();
                 if (btnText != null) btnText.text = "OK";
             }
@@ -392,7 +382,6 @@ public class PopupController : MonoBehaviour
             negateButton.gameObject.SetActive(showNegate);
             negateButton.interactable = bothInteractable || !correctIsYes;
 
-            // Update button text for AI question
             if (currentType == PopupType.AIQuestion && showNegate)
             {
                 var btnText = negateButton.GetComponentInChildren<TMP_Text>();
@@ -400,7 +389,6 @@ public class PopupController : MonoBehaviour
             }
             else if (showNegate)
             {
-                // Reset to default "Cancel" text for other popup types
                 var btnText = negateButton.GetComponentInChildren<TMP_Text>();
                 if (btnText != null) btnText.text = "Cancel";
             }
@@ -423,9 +411,6 @@ public class PopupController : MonoBehaviour
     #endregion
 }
 
-/// <summary>
-/// Types of popups that can be displayed.
-/// </summary>
 public enum PopupType
 {
     None,

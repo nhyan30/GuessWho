@@ -4,10 +4,11 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Events;
 using DG.Tweening;
+using Networking;
 
 /// <summary>
 /// Controls the main menu with multiplayer support.
-/// Handles single player, hosting games, and joining games.
+/// Handles single player, hosting games, joining games, settings, and help.
 /// </summary>
 public class MainMenuController : MonoBehaviour
 {
@@ -23,10 +24,16 @@ public class MainMenuController : MonoBehaviour
     [SerializeField] private Button singlePlayerButton;
     [SerializeField] private Button HostGameButton;
     [SerializeField] private Button joinGameButton;
+    [SerializeField] private Button settingsButton;    // New: Settings button
+    [SerializeField] private Button helpButton;        // New: Help button
+
+    [Header("Panels")]
+    [SerializeField] private SettingsPanel settingsPanel;  // Reference to Settings panel
+    [SerializeField] private HelpPanel helpPanel;          // Reference to Help panel
 
     [Header("Find Game Panel")]
     [SerializeField] private TMP_Text roomCodeText;
-    [SerializeField] private TMP_Text ipHintText;  // Shows IP address hint
+    [SerializeField] private TMP_Text ipHintText;
     [SerializeField] private TMP_Text waitingText;
     [SerializeField] private Button cancelFindButton;
 
@@ -35,7 +42,7 @@ public class MainMenuController : MonoBehaviour
     [SerializeField] private Button joinConfirmButton;
     [SerializeField] private Button cancelJoinButton;
     [SerializeField] private TMP_Text joinErrorText;
-    [SerializeField] private TMP_Text joinHintText;  // Hint text for joining
+    [SerializeField] private TMP_Text joinHintText;
 
     [Header("Game Reference")]
     [SerializeField] private GameManager gameManager;
@@ -100,6 +107,13 @@ public class MainMenuController : MonoBehaviour
         if (joinGameButton != null)
             joinGameButton.onClick.AddListener(OnJoinGameClicked);
 
+        // New: Settings and Help buttons
+        if (settingsButton != null)
+            settingsButton.onClick.AddListener(OnSettingsClicked);
+
+        if (helpButton != null)
+            helpButton.onClick.AddListener(OnHelpClicked);
+
         // Find game panel
         if (cancelFindButton != null)
             cancelFindButton.onClick.AddListener(OnCancelFindClicked);
@@ -124,6 +138,8 @@ public class MainMenuController : MonoBehaviour
 
     private void OnSinglePlayerClicked()
     {
+        AudioManager.Instance?.PlayButtonClick();
+
         isMultiplayer = false;
         Debug.Log("[Menu] Starting single player game");
 
@@ -138,52 +154,73 @@ public class MainMenuController : MonoBehaviour
 
     private void OnFindGameClicked()
     {
+        AudioManager.Instance?.PlayButtonClick();
+
         isMultiplayer = true;
         Debug.Log("[Menu] Finding game - creating room");
 
-        // Show find game panel
         Fade(HostGamePanel, true);
 
-        // Create room via network manager
-        if (Networking.NetworkManager.Instance != null)
+        if (NetworkManager.Instance != null)
         {
-            Networking.NetworkManager.Instance.OnRoomCreated += OnRoomCreated;
-            Networking.NetworkManager.Instance.OnGameReady += OnGameReady;
-            Networking.NetworkManager.Instance.OnError += OnNetworkError;
-            Networking.NetworkManager.Instance.CreateRoom();
+            NetworkManager.Instance.OnRoomCreated += OnRoomCreated;
+            NetworkManager.Instance.OnGameReady += OnGameReady;
+            NetworkManager.Instance.OnError += OnNetworkError;
+            NetworkManager.Instance.CreateRoom();
         }
     }
 
     private void OnJoinGameClicked()
     {
+        AudioManager.Instance?.PlayButtonClick();
+
         isMultiplayer = true;
         Debug.Log("[Menu] Join game - showing input");
 
-        // Clear previous input
         if (codeInputField != null)
             codeInputField.text = "";
 
         if (joinErrorText != null)
             joinErrorText.text = "";
 
-        // Show hint about same network requirement
         if (joinHintText != null)
             joinHintText.text = "Make sure you're on the same WiFi network as the host";
 
-        // Show join game panel
         Fade(joinGamePanel, true);
+    }
+
+    private void OnSettingsClicked()
+    {
+        AudioManager.Instance?.PlayButtonClick();
+
+        if (settingsPanel != null)
+        {
+            settingsPanel.Show();
+        }
+    }
+
+    private void OnHelpClicked()
+    {
+        AudioManager.Instance?.PlayButtonClick();
+
+        if (helpPanel != null)
+        {
+            helpPanel.Show();
+        }
     }
 
     private void OnCancelFindClicked()
     {
+        AudioManager.Instance?.PlayButtonClick();
+
         Debug.Log("[Menu] Cancelled finding game");
 
-        if (Networking.NetworkManager.Instance != null)
+        if (NetworkManager.Instance != null)
         {
-            Networking.NetworkManager.Instance.OnRoomCreated -= OnRoomCreated;
-            Networking.NetworkManager.Instance.OnGameReady -= OnGameReady;
-            Networking.NetworkManager.Instance.OnError -= OnNetworkError;
-            Networking.NetworkManager.Instance.LeaveRoom();
+            NetworkManager.Instance.OnRoomCreated -= OnRoomCreated;
+            NetworkManager.Instance.OnGameReady -= OnGameReady;
+            NetworkManager.Instance.OnError -= OnNetworkError;
+            NetworkManager.Instance.LeaveRoom();
         }
 
         if (waitingCoroutine != null)
@@ -197,6 +234,8 @@ public class MainMenuController : MonoBehaviour
 
     private void OnJoinConfirmClicked()
     {
+        AudioManager.Instance?.PlayButtonClick();
+
         string code = codeInputField?.text ?? "";
 
         if (code.Length != 6)
@@ -208,25 +247,27 @@ public class MainMenuController : MonoBehaviour
 
         Debug.Log($"[Menu] Attempting to join room: {code}");
 
-        if (Networking.NetworkManager.Instance != null)
+        if (NetworkManager.Instance != null)
         {
-            Networking.NetworkManager.Instance.OnRoomJoined += OnRoomJoined;
-            Networking.NetworkManager.Instance.OnGameReady += OnGameReady;
-            Networking.NetworkManager.Instance.OnError += OnNetworkError;
-            Networking.NetworkManager.Instance.JoinRoom(code);
+            NetworkManager.Instance.OnRoomJoined += OnRoomJoined;
+            NetworkManager.Instance.OnGameReady += OnGameReady;
+            NetworkManager.Instance.OnError += OnNetworkError;
+            NetworkManager.Instance.JoinRoom(code);
         }
     }
 
     private void OnCancelJoinClicked()
     {
+        AudioManager.Instance?.PlayButtonClick();
+
         Debug.Log("[Menu] Cancelled joining game");
 
-        if (Networking.NetworkManager.Instance != null)
+        if (NetworkManager.Instance != null)
         {
-            Networking.NetworkManager.Instance.OnRoomJoined -= OnRoomJoined;
-            Networking.NetworkManager.Instance.OnGameReady -= OnGameReady;
-            Networking.NetworkManager.Instance.OnError -= OnNetworkError;
-            Networking.NetworkManager.Instance.LeaveRoom();
+            NetworkManager.Instance.OnRoomJoined -= OnRoomJoined;
+            NetworkManager.Instance.OnGameReady -= OnGameReady;
+            NetworkManager.Instance.OnError -= OnNetworkError;
+            NetworkManager.Instance.LeaveRoom();
         }
 
         Fade(joinGamePanel, false);
@@ -234,7 +275,6 @@ public class MainMenuController : MonoBehaviour
 
     private void OnCodeInputChanged(string value)
     {
-        // Enable/disable join button based on input length
         if (joinConfirmButton != null)
         {
             joinConfirmButton.interactable = value.Length == 6;
@@ -252,10 +292,9 @@ public class MainMenuController : MonoBehaviour
         if (roomCodeText != null)
             roomCodeText.text = roomCode;
 
-        // Show IP hint for debugging/verification
-        if (ipHintText != null && Networking.NetworkManager.Instance != null)
+        if (ipHintText != null && NetworkManager.Instance != null)
         {
-            ipHintText.text = $"IP: {Networking.NetworkManager.Instance.HostIPAddress}";
+            ipHintText.text = $"IP: {NetworkManager.Instance.HostIPAddress}";
         }
 
         waitingCoroutine = StartCoroutine(WaitingAnimation());
@@ -273,7 +312,6 @@ public class MainMenuController : MonoBehaviour
         Debug.Log("[Menu] Successfully joined room");
         currentRoomCode = codeInputField?.text ?? "";
 
-        // Hide join panel, show waiting
         Fade(joinGamePanel, false);
         Fade(HostGamePanel, true);
 
@@ -289,13 +327,12 @@ public class MainMenuController : MonoBehaviour
     {
         Debug.Log("[Menu] Game ready!");
 
-        // Clean up network events
-        if (Networking.NetworkManager.Instance != null)
+        if (NetworkManager.Instance != null)
         {
-            Networking.NetworkManager.Instance.OnRoomCreated -= OnRoomCreated;
-            Networking.NetworkManager.Instance.OnRoomJoined -= OnRoomJoined;
-            Networking.NetworkManager.Instance.OnGameReady -= OnGameReady;
-            Networking.NetworkManager.Instance.OnError -= OnNetworkError;
+            NetworkManager.Instance.OnRoomCreated -= OnRoomCreated;
+            NetworkManager.Instance.OnRoomJoined -= OnRoomJoined;
+            NetworkManager.Instance.OnGameReady -= OnGameReady;
+            NetworkManager.Instance.OnError -= OnNetworkError;
         }
 
         if (waitingCoroutine != null)
@@ -304,7 +341,6 @@ public class MainMenuController : MonoBehaviour
             waitingCoroutine = null;
         }
 
-        // Transition to game
         Fade(HostGamePanel, false);
         Fade(joinGamePanel, false);
 
@@ -377,13 +413,11 @@ public class MainMenuController : MonoBehaviour
 
         isMultiplayer = false;
 
-        // Leave network room if in multiplayer
-        if (Networking.NetworkManager.Instance != null && Networking.NetworkManager.Instance.IsConnected)
+        if (NetworkManager.Instance != null && NetworkManager.Instance.IsConnected)
         {
-            Networking.NetworkManager.Instance.LeaveRoom();
+            NetworkManager.Instance.LeaveRoom();
         }
 
-        // Fade back to menu
         Fade(gameCanvasGroup, false, () =>
         {
             Fade(mainMenuCanvasGroup, true, null);
