@@ -8,7 +8,7 @@ using UnityEngine.UI;
 public class HelpPanel : MonoBehaviour
 {
     [Header("UI References")]
-    [SerializeField] private GameObject helpPanel;
+    [SerializeField] private CanvasGroup helpPanel;
     [SerializeField] private Button cancelButton;
 
     [Header("Help Text")]
@@ -92,7 +92,8 @@ TIPS:
     {
         if (helpPanel != null)
         {
-            helpPanel.SetActive(true);
+            //helpPanel.SetActive(true);
+            MainMenuController.Instance.Fade(helpPanel, true);
         }
     }
 
@@ -100,14 +101,15 @@ TIPS:
     {
         if (helpPanel != null)
         {
-            helpPanel.SetActive(false);
+            //helpPanel.SetActive(false);
+            MainMenuController.Instance.Fade(helpPanel, false);
         }
     }
 
-    public bool IsVisible()
-    {
-        return helpPanel != null && helpPanel.activeSelf;
-    }
+    //public bool IsVisible()
+    //{
+    //    return helpPanel != null && helpPanel.activeSelf;
+    //}
 
     #endregion
 }

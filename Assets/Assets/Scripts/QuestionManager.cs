@@ -6,6 +6,9 @@ using UnityEngine;
 /// Manages all questions in the game. Handles question navigation,
 /// filtering, and provides questions for both player and AI.
 /// Uses Singleton pattern for easy access.
+/// 
+/// IMPORTANT: The player's question bar only shows questions the PLAYER hasn't asked.
+/// Questions asked by AI or opponent do NOT affect the player's question bar.
 /// </summary>
 public class QuestionManager : MonoBehaviour
 {
@@ -17,26 +20,59 @@ public class QuestionManager : MonoBehaviour
     [Header("Settings")]
     [SerializeField] private bool shuffleQuestionsOnStart = true;
 
-    // Current question index for navigation
-    private int currentQuestionIndex = 0;
+    // Track asked questions - separate for player and AI/Opponent
+    // Only askedByCurrentPlayer affects the question bar visibility
+    private HashSet<SCR_Question> askedByCurrentPlayer = new HashSet<SCR_Question>();
+    private HashSet<SCR_Question> askedByOpponent = new HashSet<SCR_Question>(); // AI or other player
 
-    // Track asked questions to avoid repetition - separate for player and AI
-    private HashSet<SCR_Question> askedByPlayer = new HashSet<SCR_Question>();
-    private HashSet<SCR_Question> askedByAI = new HashSet<SCR_Question>();
+    // Current question index for navigation (within player's unasked questions)
+    private int currentUnaskedIndex = 0;
 
-    // Combined set for backwards compatibility
-    private HashSet<SCR_Question> askedQuestions => new HashSet<SCR_Question>(askedByPlayer.Concat(askedByAI));
+    // Cached list of questions available to the player
+    private List<SCR_Question> playerAvailableQuestionsCache;
+    private bool cacheDirty = true;
 
     // Questions organized by category for efficient access
     private Dictionary<QuestionCategory, List<SCR_Question>> questionsByCategory;
 
     #region Properties
-    public SCR_Question CurrentQuestion =>
-        allQuestions.Count > 0 ? allQuestions[currentQuestionIndex] : null;
+
+    /// <summary>
+    /// Gets the current question available to the player (not asked by player yet).
+    /// </summary>
+    public SCR_Question CurrentQuestion
+    {
+        get
+        {
+            var available = GetPlayerAvailableQuestions();
+            if (available.Count == 0) return null;
+            if (currentUnaskedIndex >= available.Count) currentUnaskedIndex = 0;
+            return available[currentUnaskedIndex];
+        }
+    }
 
     public int TotalQuestions => allQuestions.Count;
-    public int CurrentIndex => currentQuestionIndex;
-    public int AskedCount => askedQuestions.Count;
+
+    /// <summary>
+    /// Current index within the player's available questions list (1-based for display).
+    /// </summary>
+    public int CurrentIndex => currentUnaskedIndex;
+
+    /// <summary>
+    /// Total number of questions still available to the player.
+    /// </summary>
+    public int UnaskedCount => GetPlayerAvailableQuestions().Count;
+
+    /// <summary>
+    /// Alias for UnaskedCount for clarity.
+    /// </summary>
+    public int PlayerAvailableCount => GetPlayerAvailableQuestions().Count;
+
+    /// <summary>
+    /// Total number of questions asked by the current player.
+    /// </summary>
+    public int AskedByPlayerCount => askedByCurrentPlayer.Count;
+
     #endregion
 
     #region Unity Lifecycle
@@ -65,6 +101,7 @@ public class QuestionManager : MonoBehaviour
         }
 
         OrganizeQuestionsByCategory();
+        InvalidateCache();
     }
 
     private void ShuffleQuestions()
@@ -91,38 +128,85 @@ public class QuestionManager : MonoBehaviour
     }
     #endregion
 
-    #region Navigation Methods
+    #region Cache Management
+
+    private void InvalidateCache()
+    {
+        cacheDirty = true;
+    }
+
+    private void RefreshCacheIfNeeded()
+    {
+        if (cacheDirty || playerAvailableQuestionsCache == null)
+        {
+            // IMPORTANT: Only filter by questions the CURRENT PLAYER has asked
+            // Do NOT filter by AI/opponent questions - player can still ask those!
+            playerAvailableQuestionsCache = allQuestions
+                .Where(q => !askedByCurrentPlayer.Contains(q))
+                .ToList();
+            cacheDirty = false;
+        }
+    }
+
+    #endregion
+
+    #region Navigation Methods (Player's Available Questions Only)
+
     /// <summary>
-    /// Moves to the next question in the list.
+    /// Gets the list of questions available to the player (not yet asked by player).
+    /// This does NOT include questions asked by AI/opponent - player can still ask those!
     /// </summary>
-    /// <returns>The next question, or null if at the end</returns>
+    public List<SCR_Question> GetPlayerAvailableQuestions()
+    {
+        RefreshCacheIfNeeded();
+        return playerAvailableQuestionsCache;
+    }
+
+    /// <summary>
+    /// Gets ALL unasked questions (not asked by player OR opponent).
+    /// Used by AI to select questions.
+    /// </summary>
+    public List<SCR_Question> GetUnaskedQuestions()
+    {
+        return allQuestions
+            .Where(q => !askedByCurrentPlayer.Contains(q) && !askedByOpponent.Contains(q))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Moves to the next available question for the player.
+    /// </summary>
+    /// <returns>The next question, or null if none available</returns>
     public SCR_Question GetNextQuestion()
     {
-        if (allQuestions.Count == 0) return null;
+        var available = GetPlayerAvailableQuestions();
+        if (available.Count == 0) return null;
 
-        currentQuestionIndex = (currentQuestionIndex + 1) % allQuestions.Count;
+        currentUnaskedIndex = (currentUnaskedIndex + 1) % available.Count;
         return CurrentQuestion;
     }
 
     /// <summary>
-    /// Moves to the previous question in the list.
+    /// Moves to the previous available question for the player.
     /// </summary>
-    /// <returns>The previous question, or null if at the beginning</returns>
+    /// <returns>The previous question, or null if none available</returns>
     public SCR_Question GetPreviousQuestion()
     {
-        if (allQuestions.Count == 0) return null;
+        var available = GetPlayerAvailableQuestions();
+        if (available.Count == 0) return null;
 
-        currentQuestionIndex--;
-        if (currentQuestionIndex < 0)
+        currentUnaskedIndex--;
+        if (currentUnaskedIndex < 0)
         {
-            currentQuestionIndex = allQuestions.Count - 1;
+            currentUnaskedIndex = available.Count - 1;
         }
 
         return CurrentQuestion;
     }
 
     /// <summary>
-    /// Gets a question at a specific index.
+    /// Gets a question at a specific index from the ALL questions list.
+    /// Used for finding questions by text from network messages.
     /// </summary>
     public SCR_Question GetQuestionAtIndex(int index)
     {
@@ -131,61 +215,85 @@ public class QuestionManager : MonoBehaviour
     }
 
     /// <summary>
+    /// Finds a question by its text content.
+    /// </summary>
+    public SCR_Question FindQuestionByText(string questionText)
+    {
+        return allQuestions.FirstOrDefault(q => q.QuestionText == questionText);
+    }
+
+    /// <summary>
     /// Resets the question index to the beginning.
     /// </summary>
     public void ResetToFirstQuestion()
     {
-        currentQuestionIndex = 0;
+        currentUnaskedIndex = 0;
     }
+
     #endregion
 
     #region Question Tracking
+
     /// <summary>
-    /// Marks a question as asked by the player (to avoid repetition).
+    /// Marks a question as asked by the current player.
+    /// This will REMOVE it from the player's question bar.
     /// </summary>
     public void MarkQuestionAsAsked(SCR_Question question)
     {
-        if (question != null)
+        if (question != null && askedByCurrentPlayer.Add(question))
         {
-            askedByPlayer.Add(question);
+            InvalidateCache();
+
+            // Adjust index if needed to stay within bounds
+            var available = GetPlayerAvailableQuestions();
+            if (currentUnaskedIndex >= available.Count && available.Count > 0)
+            {
+                currentUnaskedIndex = available.Count - 1;
+            }
         }
     }
 
     /// <summary>
-    /// Marks a question as asked by the AI (to avoid repetition).
+    /// Marks a question as asked by AI (in single player) or opponent (in multiplayer).
+    /// This does NOT affect the player's question bar - player can still ask these!
     /// </summary>
     public void MarkQuestionAsAskedAI(SCR_Question question)
     {
         if (question != null)
         {
-            askedByAI.Add(question);
+            askedByOpponent.Add(question);
+            // Note: We do NOT invalidate cache here because
+            // the player's question bar is not affected
         }
     }
 
     /// <summary>
-    /// Checks if a question has already been asked.
+    /// Checks if the current player has already asked a question.
+    /// </summary>
+    public bool WasQuestionAskedByPlayer(SCR_Question question)
+    {
+        return askedByCurrentPlayer.Contains(question);
+    }
+
+    /// <summary>
+    /// Checks if a question has already been asked by anyone.
     /// </summary>
     public bool WasQuestionAsked(SCR_Question question)
     {
-        return askedByPlayer.Contains(question) || askedByAI.Contains(question);
+        return askedByCurrentPlayer.Contains(question) || askedByOpponent.Contains(question);
     }
 
     /// <summary>
-    /// Gets all unasked questions.
-    /// </summary>
-    public List<SCR_Question> GetUnaskedQuestions()
-    {
-        return allQuestions.Where(q => !askedByPlayer.Contains(q) && !askedByAI.Contains(q)).ToList();
-    }
-
-    /// <summary>
-    /// Clears the asked questions history.
+    /// Clears all asked questions history.
     /// </summary>
     public void ClearAskedHistory()
     {
-        askedByPlayer.Clear();
-        askedByAI.Clear();
+        askedByCurrentPlayer.Clear();
+        askedByOpponent.Clear();
+        currentUnaskedIndex = 0;
+        InvalidateCache();
     }
+
     #endregion
 
     #region Category Methods
@@ -203,7 +311,7 @@ public class QuestionManager : MonoBehaviour
     #region AI Helper Methods
     /// <summary>
     /// Gets the best question for AI to ask based on remaining characters.
-    /// Uses a scoring system to find questions that eliminate the most characters.
+    /// AI selects from questions not asked by anyone yet.
     /// </summary>
     /// <param name="remainingCharacters">List of characters still in play</param>
     /// <returns>The best question to ask</returns>
@@ -215,6 +323,7 @@ public class QuestionManager : MonoBehaviour
         SCR_Question bestQuestion = null;
         float bestScore = -1f;
 
+        // AI selects from truly unasked questions (not asked by player or AI)
         foreach (var question in GetUnaskedQuestions())
         {
             float score = CalculateQuestionScore(question, remainingCharacters);
@@ -249,7 +358,6 @@ public class QuestionManager : MonoBehaviour
         float ratio = (float)matchCount / totalCount;
 
         // Score is higher when ratio is closer to 0.5 (splits evenly)
-        // Use inverted distance from 0.5
         return 1f - Mathf.Abs(0.5f - ratio);
     }
     #endregion

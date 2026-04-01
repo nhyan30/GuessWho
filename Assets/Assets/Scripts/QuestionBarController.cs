@@ -5,6 +5,10 @@ using UnityEngine.UI;
 /// <summary>
 /// Controls the Question Bar UI at the bottom of the screen.
 /// Handles question display, navigation with arrows, and sending questions.
+/// 
+/// IMPORTANT: Only shows questions the CURRENT PLAYER hasn't asked yet.
+/// - In Single Player: AI questions do NOT affect player's question bar
+/// - In Multiplayer: Each player's question bar is independent
 /// </summary>
 public class QuestionBarController : MonoBehaviour
 {
@@ -96,42 +100,68 @@ public class QuestionBarController : MonoBehaviour
         // Play button sound
         AudioManager.Instance?.PlayButtonClick();
 
-        // Mark question as asked
+        // Mark question as asked by THIS player
+        // This removes it from THIS player's question bar only
+        // (not from opponent's/AI's perspective)
         QuestionManager.Instance.MarkQuestionAsAsked(currentQuestion);
 
         // Notify listeners (GameManager will handle the game logic)
         OnQuestionSent?.Invoke(currentQuestion);
 
-        // Move to next question for convenience
-        currentQuestion = QuestionManager.Instance.GetNextQuestion();
+        // Move to next available question
+        currentQuestion = QuestionManager.Instance.CurrentQuestion;
         UpdateDisplay();
     }
     #endregion
 
     #region Display Updates
     /// <summary>
-    /// Updates the question display with the current question.
+    /// Updates the question display with the current question available to this player.
+    /// Shows count of questions this player hasn't asked yet.
     /// </summary>
     public void UpdateDisplay()
     {
         if (QuestionManager.Instance == null) return;
 
+        // Get current question available to this player
         currentQuestion = QuestionManager.Instance.CurrentQuestion;
 
         // Update question text
         if (questionText != null)
         {
-            questionText.text = currentQuestion != null
-                ? currentQuestion.QuestionText
-                : "No questions available";
+            if (currentQuestion != null)
+            {
+                questionText.text = currentQuestion.QuestionText;
+                questionText.color = normalColor;
+            }
+            else
+            {
+                questionText.text = "No questions remaining!";
+                questionText.color = disabledColor;
+            }
         }
 
-        // Update counter
+        // Update counter to show questions this player hasn't asked
         if (showCounter && questionCounterText != null)
         {
-            int current = QuestionManager.Instance.CurrentIndex + 1;
-            int total = QuestionManager.Instance.TotalQuestions;
-            questionCounterText.text = $"{current}/{total}";
+            int remaining = QuestionManager.Instance.UnaskedCount;
+
+            if (remaining > 0)
+            {
+                int current = QuestionManager.Instance.CurrentIndex + 1;
+                questionCounterText.text = $"{current}/{remaining}";
+            }
+            else
+            {
+                questionCounterText.text = "0/0";
+            }
+        }
+
+        // Update button interactability based on available questions
+        bool hasQuestions = currentQuestion != null;
+        if (sendButton != null)
+        {
+            sendButton.interactable = hasQuestions && isActive;
         }
     }
 
@@ -154,7 +184,7 @@ public class QuestionBarController : MonoBehaviour
 
         if (sendButton != null)
         {
-            sendButton.interactable = active;
+            sendButton.interactable = active && currentQuestion != null;
         }
     }
 

@@ -958,7 +958,7 @@ public class GameManager : MonoBehaviour
         {
             // Show AI's wrong guess with character sprite
             popup?.ShowAIGuessResult(guessedCharacter, false);
-            Invoke(nameof(StartPlayerTurn), 2f);
+            Invoke(nameof(PlayerWins), 2f);
         }
     }
 

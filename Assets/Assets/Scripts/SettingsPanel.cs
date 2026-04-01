@@ -8,7 +8,7 @@ using UnityEngine.UI;
 public class SettingsPanel : MonoBehaviour
 {
     [Header("UI References")]
-    [SerializeField] private GameObject settingsPanel;
+    [SerializeField] private CanvasGroup settingsPanel;
     [SerializeField] private Slider musicVolumeSlider;
     [SerializeField] private Slider sfxVolumeSlider;
     [SerializeField] private TMP_Text musicVolumeText;
@@ -116,6 +116,7 @@ public class SettingsPanel : MonoBehaviour
     {
         AudioManager.Instance?.PlayButtonClick();
         Hide();
+        MainMenuController.Instance.Fade(settingsPanel, false);
     }
 
     #endregion
@@ -126,7 +127,8 @@ public class SettingsPanel : MonoBehaviour
     {
         if (settingsPanel != null)
         {
-            settingsPanel.SetActive(true);
+            //settingsPanel.SetActive(true);
+            MainMenuController.Instance.Fade(settingsPanel, true);
         }
 
         // Refresh slider values
@@ -147,14 +149,15 @@ public class SettingsPanel : MonoBehaviour
     {
         if (settingsPanel != null)
         {
-            settingsPanel.SetActive(false);
+            //settingsPanel.SetActive(false);
+            MainMenuController.Instance.Fade(settingsPanel, false);
         }
     }
 
-    public bool IsVisible()
-    {
-        return settingsPanel != null && settingsPanel.activeSelf;
-    }
+    //public bool IsVisible()
+    //{
+    //    return settingsPanel != null && settingsPanel.activeSelf;
+    //}
 
     #endregion
 }

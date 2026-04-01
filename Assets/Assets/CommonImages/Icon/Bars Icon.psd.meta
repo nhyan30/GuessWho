@@ -1,10 +1,16 @@
 fileFormatVersion: 2
-guid: 268666044dce483438f2c5b30c97c11c
+guid: 395b0e387abd77f43b20f8cfb0814e81
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 643144027461267585
-    second: Settings Icon_0
+      213: 231874256718718132
+    second: Bars Icon_0
+  - first:
+      213: -5176037460349847330
+    second: Bars Icon_1
+  - first:
+      213: 7675352447408281092
+    second: Bars Icon_2
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -126,13 +132,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Settings Icon_0
+      name: Bars Icon_0
       rect:
         serializedVersion: 2
-        x: 127
-        y: 125
-        width: 771
-        height: 771
+        x: 62
+        y: 351
+        width: 387
+        height: 68
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -141,8 +147,52 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 1803e30e518ece800800000000000000
-      internalID: 643144027461267585
+      spriteID: 4b4e6407868c73300800000000000000
+      internalID: 231874256718718132
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Bars Icon_1
+      rect:
+        serializedVersion: 2
+        x: 62
+        y: 222
+        width: 387
+        height: 68
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ed87bb78a550b28b0800000000000000
+      internalID: -5176037460349847330
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Bars Icon_2
+      rect:
+        serializedVersion: 2
+        x: 62
+        y: 95
+        width: 387
+        height: 68
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 40612b99264548a60800000000000000
+      internalID: 7675352447408281092
       vertices: []
       indices: 
       edges: []
@@ -161,7 +211,9 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Settings Icon_0: 643144027461267585
+      Bars Icon_0: 231874256718718132
+      Bars Icon_1: -5176037460349847330
+      Bars Icon_2: 7675352447408281092
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

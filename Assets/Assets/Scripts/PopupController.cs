@@ -252,7 +252,7 @@ public class PopupController : MonoBehaviour
         SetCharacterImage(guessedCharacter?.characterSprite);
         HideAnswerDisplay();
         HideGameOverButtons();
-        SetButtons(true, false, true);
+        SetButtons(false, false, false);
         Show();
     }
 
