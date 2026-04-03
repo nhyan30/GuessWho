@@ -2,11 +2,12 @@ using UnityEngine;
 
 /// <summary>
 /// Categories for organizing questions in the game.
+/// Arabic Edition: Includes Hijab category
 /// </summary>
 public enum QuestionCategory
 {
     Gender,         // Male/Female questions
-    Accessories,    // Hat, glasses, earrings
+    Accessories,    // Hat, glasses, hijab
     FacialHair,     // Beard, mustache
     HairColor,      // Hair color questions
     SkinTone        // Skin tone questions
@@ -14,6 +15,7 @@ public enum QuestionCategory
 
 /// <summary>
 /// Types of character attributes that can be queried.
+/// Arabic Edition: HasHijab replaces HasEarrings
 /// </summary>
 public enum CharacterAttribute
 {
@@ -21,7 +23,7 @@ public enum CharacterAttribute
     HasDarkSkin,
     HasHat,
     HasGlasses,
-    HasEarrings,
+    HasHijab,        // Replaced HasEarrings for Arabic edition
     HasBeard,
     HasMustache,
     HasHairColor
@@ -30,6 +32,11 @@ public enum CharacterAttribute
 /// <summary>
 /// ScriptableObject for question data.
 /// Create via: Assets > Create > Guess Who > Question
+/// 
+/// Arabic Edition Note:
+/// - HasHijab replaces HasEarrings
+/// - Characters with hijab have their hair covered
+/// - Hair color questions will automatically eliminate characters with hijab
 /// </summary>
 [CreateAssetMenu(fileName = "New Question", menuName = "Guess Who/Question")]
 public class SCR_Question : ScriptableObject
@@ -53,6 +60,10 @@ public class SCR_Question : ScriptableObject
 
     /// <summary>
     /// Checks if a character matches this question's criteria.
+    /// 
+    /// Special handling for hair color:
+    /// Characters with hijab (hair covered) will NOT match any hair color question.
+    /// This is handled separately in CharacterFilter for proper elimination logic.
     /// </summary>
     public bool MatchesCharacter(SCR_Character character)
     {
@@ -64,7 +75,7 @@ public class SCR_Question : ScriptableObject
             CharacterAttribute.HasDarkSkin => character.hasDarkSkin == expectedValue,
             CharacterAttribute.HasHat => character.hasHat == expectedValue,
             CharacterAttribute.HasGlasses => character.hasGlasses == expectedValue,
-            CharacterAttribute.HasEarrings => character.hasEarrings == expectedValue,
+            CharacterAttribute.HasHijab => character.hasHijab == expectedValue,
             CharacterAttribute.HasBeard => character.hasBeard == expectedValue,
             CharacterAttribute.HasMustache => character.hasMustache == expectedValue,
             CharacterAttribute.HasHairColor => character.hairColor == targetHairColor,

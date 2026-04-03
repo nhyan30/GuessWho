@@ -3,6 +3,10 @@ using UnityEngine;
 /// <summary>
 /// ScriptableObject for character data.
 /// Create via: Assets > Create > Guess Who > Character
+/// 
+/// Arabic Edition:
+/// - HasHijab replaces HasEarrings
+/// - Characters with hijab have their hair covered (hair color not visible)
 /// </summary>
 [CreateAssetMenu(fileName = "New Character", menuName = "Guess Who/Character")]
 public class SCR_Character : ScriptableObject
@@ -29,7 +33,8 @@ public class SCR_Character : ScriptableObject
     [Header("Accessories")]
     public bool hasHat;
     public bool hasGlasses;
-    public bool hasEarrings;
+    [Tooltip("Hijab - If true, the character's hair is covered (Arabic Edition)")]
+    public bool hasHijab;    // Replaced hasEarrings for Arabic edition
 
     [Header("Facial Hair")]
     public bool hasBeard;

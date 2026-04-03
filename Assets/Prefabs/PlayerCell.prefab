@@ -96,9 +96,9 @@ MonoBehaviour:
   characterImage: {fileID: 2375504905620681168}
   hintHat: {fileID: 8264918397565110379}
   hintGlasses: {fileID: 7933593130631543362}
+  hintHijab: {fileID: 1333512330427250825}
   hintBeard: {fileID: 4175495379718608434}
   hintMustache: {fileID: 5407262544566189981}
-  hintEarrings: {fileID: 1333512330427250825}
   crossOutImage: {fileID: 4647562703098941351}
   cellButton: {fileID: 536920447067476720}
   eliminatedColor: {r: 0.5, g: 0.5, b: 0.5, a: 0.7}
@@ -268,7 +268,7 @@ GameObject:
   - component: {fileID: 5373181128558289306}
   - component: {fileID: 1333512330427250825}
   m_Layer: 5
-  m_Name: Earrings
+  m_Name: Hijab
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -321,7 +321,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: -1154581772, guid: 035da459ee6c91f48934913fced47939, type: 3}
+  m_Sprite: {fileID: 21300000, guid: aac5221b5891b54498971eab94389573, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1

@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 54fb89815dc0e5e4c88c6d861395d849
+guid: b15a4a28d7d19c64399a208fd1e99cab
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -8196069848209949384
-    second: Yousef 1_0
+      213: -2976520298846638233
+    second: Fatima_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -46,7 +46,7 @@ TextureImporter:
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
-  spriteMode: 2
+  spriteMode: 1
   spriteExtrude: 1
   spriteMeshType: 1
   alignment: 0
@@ -126,13 +126,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Yousef 1_0
+      name: Fatima_0
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 1024
-        height: 1024
+        width: 1408
+        height: 768
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -141,8 +141,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 83df72fc5e5b14e80800000000000000
-      internalID: -8196069848209949384
+      spriteID: 76fa188fe8641b6d0800000000000000
+      internalID: -2976520298846638233
       vertices: []
       indices: 
       edges: []
@@ -151,7 +151,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 
+    spriteID: 5e97eb03825dee720800000000000000
     internalID: 0
     vertices: []
     indices: 
@@ -161,7 +161,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Yousef 1_0: -8196069848209949384
+      Fatima_0: -2976520298846638233
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

@@ -1,77 +1,92 @@
 using System.Collections.Generic;
+using System.Linq;
 
 /// <summary>
-/// Utility class for filtering characters based on questions.
+/// Static utility class that handles character elimination logic based on questions and answers.
+/// 
+/// Arabic Edition:
+/// Properly handles Hijab logic - characters wearing hijab have their hair covered,
+/// so they should be eliminated when hair color questions are asked.
 /// </summary>
 public static class CharacterFilter
 {
     /// <summary>
-    /// Gets characters to eliminate based on question and answer.
+    /// Gets characters that should be eliminated based on a question and the answer.
     /// </summary>
+    /// <param name="characters">Current list of possible characters</param>
+    /// <param name="question">The question that was asked</param>
+    /// <param name="answerIsYes">The answer received (Yes/No)</param>
+    /// <returns>List of characters to eliminate</returns>
     public static List<SCR_Character> GetCharactersToEliminate(
         List<SCR_Character> characters,
         SCR_Question question,
         bool answerIsYes)
     {
-        var result = new List<SCR_Character>();
+        if (characters == null || question == null)
+            return new List<SCR_Character>();
 
-        foreach (var c in characters)
+        var toEliminate = new List<SCR_Character>();
+
+        foreach (var character in characters)
         {
-            bool matches = question.MatchesCharacter(c);
-            // If answer is YES, eliminate characters that DON'T match
-            // If answer is NO, eliminate characters that DO match
-            bool shouldEliminate = answerIsYes ? !matches : matches;
-            if (shouldEliminate) result.Add(c);
+            bool shouldEliminate = ShouldCharacterBeEliminated(character, question, answerIsYes);
+            if (shouldEliminate)
+            {
+                toEliminate.Add(character);
+            }
         }
 
-        return result;
+        return toEliminate;
     }
 
     /// <summary>
-    /// Gets remaining characters after elimination.
+    /// Gets the remaining characters after elimination.
     /// </summary>
     public static List<SCR_Character> GetRemainingCharacters(
         List<SCR_Character> characters,
         SCR_Question question,
         bool answerIsYes)
     {
-        var result = new List<SCR_Character>();
-
-        foreach (var c in characters)
-        {
-            bool matches = question.MatchesCharacter(c);
-            // If answer is YES, keep characters that match
-            // If answer is NO, keep characters that don't match
-            bool shouldKeep = answerIsYes ? matches : !matches;
-            if (shouldKeep) result.Add(c);
-        }
-
-        return result;
+        return characters
+            .Where(c => !ShouldCharacterBeEliminated(c, question, answerIsYes))
+            .ToList();
     }
 
     /// <summary>
-    /// Gets count of characters matching a question.
+    /// Determines if a character should be eliminated based on the question and answer.
+    /// 
+    /// Special handling for Arabic Edition (Hijab):
+    /// - Characters with hijab have their hair covered
+    /// - When asking about ANY hair color, characters with hijab shouldn't be eliminated
+    ///   because their hair is not visible (cannot confirm or deny hair color)
     /// </summary>
-    public static int GetMatchCount(List<SCR_Character> characters, SCR_Question question)
+    private static bool ShouldCharacterBeEliminated(
+        SCR_Character character,
+        SCR_Question question,
+        bool answerIsYes)
     {
-        int count = 0;
-        foreach (var c in characters)
-        {
-            if (question.MatchesCharacter(c)) count++;
-        }
-        return count;
-    }
+        if (character == null || question == null)
+            return false;
 
-    /// <summary>
-    /// Gets count of characters NOT matching a question.
-    /// </summary>
-    public static int GetNonMatchCount(List<SCR_Character> characters, SCR_Question question)
-    {
-        int count = 0;
-        foreach (var c in characters)
+        // Special case: Hair color questions
+        // Arabic Edition: Characters with hijab should be eliminated when hair color is asked
+        // because their hair is covered and not visible
+        if (question.attributeToCheck == CharacterAttribute.HasHairColor)
         {
-            if (!question.MatchesCharacter(c)) count++;
+            // If character has hijab, Don't eliminate them regardless of the answer
+            // because we cannot determine their hair color
+            if (character.hasHijab)
+            {
+                return false;
+            }
+
+            // Normal hair color comparison for characters without hijab
+            bool characterMatches = character.hairColor == question.targetHairColor;
+            return characterMatches != answerIsYes;
         }
-        return count;
+
+        // For all other attributes (including HasHijab), use normal matching logic
+        bool matches = question.MatchesCharacter(character);
+        return matches != answerIsYes;
     }
 }

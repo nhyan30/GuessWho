@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: b932366dc4c701d48a7483eb23c206c9
+guid: 5fbe9f9e8572e0b42849f90f49cfc753
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 1484393661500482478
-    second: Zayed 1_0
+      213: 3169437456033962931
+    second: Yousef_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -126,7 +126,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Zayed 1_0
+      name: Yousef_0
       rect:
         serializedVersion: 2
         x: 0
@@ -141,8 +141,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: ea3e394ab20a99410800000000000000
-      internalID: 1484393661500482478
+      spriteID: 3bbd8b8e29a1cfb20800000000000000
+      internalID: 3169437456033962931
       vertices: []
       indices: 
       edges: []
@@ -161,7 +161,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Zayed 1_0: 1484393661500482478
+      Yousef_0: 3169437456033962931
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

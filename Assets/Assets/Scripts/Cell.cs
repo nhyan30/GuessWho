@@ -5,6 +5,7 @@ using UnityEngine.UI;
 
 /// <summary>
 /// Represents a single character cell in the player's grid.
+/// Arabic Edition: Replaced Earrings hint with Hijab hint.
 /// </summary>
 public class Cell : MonoBehaviour
 {
@@ -13,9 +14,9 @@ public class Cell : MonoBehaviour
     [SerializeField] private Image characterImage;
     [SerializeField] private Image hintHat;
     [SerializeField] private Image hintGlasses;
+    [SerializeField] private Image hintHijab;      // Replaced hintEarrings
     [SerializeField] private Image hintBeard;
     [SerializeField] private Image hintMustache;
-    [SerializeField] private Image hintEarrings;
     [SerializeField] private GameObject crossOutImage;
     [SerializeField] private Button cellButton;
 
@@ -60,9 +61,9 @@ public class Cell : MonoBehaviour
 
         SetHintAlpha(hintHat, character.hasHat);
         SetHintAlpha(hintGlasses, character.hasGlasses);
+        SetHintAlpha(hintHijab, character.hasHijab);      // Updated for Arabic edition
         SetHintAlpha(hintBeard, character.hasBeard);
         SetHintAlpha(hintMustache, character.hasMustache);
-        SetHintAlpha(hintEarrings, character.hasEarrings);
     }
 
     private void SetHintAlpha(Image hint, bool active)
