@@ -514,10 +514,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   musicSource: {fileID: 0}
   sfxSource: {fileID: 0}
-  backgroundMusic: {fileID: 8300000, guid: cee22e8ff14484b4780470e349021291, type: 3}
+  backgroundMusic: {fileID: 8300000, guid: 5fad7347b005d084b9a05954f2d3799c, type: 3}
   buttonClickSFX: {fileID: 8300000, guid: 6ff99b2a06a9db14fabbd531befb77cd, type: 3}
   defaultMusicVolume: 0.5
-  defaultSFXVolume: 0.7
+  defaultSFXVolume: 0.5
   gameplayMusicVolume: 0.3
 --- !u!1 &87495431
 GameObject:
@@ -3017,6 +3017,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 6b2b18b694b871b48b85b31e4ee6a7d7, type: 2}
   - {fileID: 11400000, guid: 164dd81787184dd4d9405e4c7146f251, type: 2}
   - {fileID: 11400000, guid: 42fa5e612b6657d4699d138e1786c198, type: 2}
+  - {fileID: 11400000, guid: a6eef31cb9e02664dbca0416e60ef6b6, type: 2}
   shuffleQuestionsOnStart: 0
 --- !u!4 &417871701
 Transform:
@@ -7765,29 +7766,29 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   characterList:
-  - {fileID: 11400000, guid: 75306b62c8f412a49ae51488209bca12, type: 2}
-  - {fileID: 11400000, guid: 4a73613bb2f4cb4418915b7809122581, type: 2}
-  - {fileID: 11400000, guid: 8062afd0dd058db4dbbdcd535c52ed0d, type: 2}
-  - {fileID: 11400000, guid: f9a72fdde81a6ca4489290cb59b53660, type: 2}
-  - {fileID: 11400000, guid: c7243890357ec4b409ee912bf2a9b748, type: 2}
-  - {fileID: 11400000, guid: 62e166b29b85efd4ba8d76eefaa39f01, type: 2}
   - {fileID: 11400000, guid: 34e0ecbc5b0736d4a953fe3fd61ffabf, type: 2}
   - {fileID: 11400000, guid: b159c5a78557b1343b03faf4c9302ace, type: 2}
   - {fileID: 11400000, guid: 220618f698748e249b8a4d4fbcf62dcd, type: 2}
+  - {fileID: 11400000, guid: ed07057235f6e2f4d8626742a33c940f, type: 2}
+  - {fileID: 11400000, guid: 7802e7e58b3b88043a61977c836ccec8, type: 2}
   - {fileID: 11400000, guid: fb05411568b030b4089d2db842bdfb2d, type: 2}
   - {fileID: 11400000, guid: f644f1067966e8243b81cfcce429120a, type: 2}
   - {fileID: 11400000, guid: 740f77b0d85197e43a9ce583c85051ea, type: 2}
   - {fileID: 11400000, guid: d1e12141768a239478b05beef8d99ad3, type: 2}
-  - {fileID: 11400000, guid: 82d4f65242481eb40abe4a53a2417e4a, type: 2}
+  - {fileID: 11400000, guid: fa01d5cf1968bfd48a50780a656217b3, type: 2}
   - {fileID: 11400000, guid: 93835e6cbcd271b43b19bb614505f680, type: 2}
   - {fileID: 11400000, guid: b6972b639cd1c164dac502f67e9ade3d, type: 2}
   - {fileID: 11400000, guid: 8cb12f79d93d98841acac8863090c89b, type: 2}
   - {fileID: 11400000, guid: ab31685c30645dc46a646e8f5ea663d9, type: 2}
   - {fileID: 11400000, guid: 420e9084e1f034640bc7f565b11aa351, type: 2}
+  - {fileID: 11400000, guid: 38073f5602b62ab448312b674951b740, type: 2}
   - {fileID: 11400000, guid: 57c6e1bea0a12ae49b8830095cb8353a, type: 2}
   - {fileID: 11400000, guid: f1190d2dcee62f947bfd6944f488bbd2, type: 2}
+  - {fileID: 11400000, guid: e9bde9a0c4ae5e246aa86d30b98c5bac, type: 2}
   - {fileID: 11400000, guid: 6577e1f4f05673f449438f9c1f71ffa4, type: 2}
+  - {fileID: 11400000, guid: 1499d285ae53f2d42a2b8f0372a897f7, type: 2}
   - {fileID: 11400000, guid: 12e31776478c386428d5d3c542c1019a, type: 2}
+  - {fileID: 11400000, guid: 157331ae74e86ae4cbe9eaaa5479cc8d, type: 2}
   - {fileID: 11400000, guid: 1e2e49774ddc83249b1b87bcd8c08944, type: 2}
   playerGrid: {fileID: 181254586}
   opponentGrid: {fileID: 1282771362}

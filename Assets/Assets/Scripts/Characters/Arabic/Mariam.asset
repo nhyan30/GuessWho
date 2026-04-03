@@ -13,12 +13,13 @@ MonoBehaviour:
   m_Name: Mariam
   m_EditorClassIdentifier: 
   characterName: Mariam
-  characterSprite: {fileID: 21300000, guid: 4905d1311f4a4d04ca5d38f82cbdb779, type: 3}
+  characterSprite: {fileID: 21300000, guid: 0740e229456df8f4ab610d98dad9781d, type: 3}
   isMale: 0
   hasDarkSkin: 0
-  hairColor: 1
+  hairColor: 3
   hasHat: 1
   hasGlasses: 0
-  hasHijab: 1
+  hasEarrings: 0
+  hasHijab: 0
   hasBeard: 0
   hasMustache: 0

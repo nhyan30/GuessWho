@@ -1,4 +1,3 @@
-using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -14,7 +13,8 @@ public class Cell : MonoBehaviour
     [SerializeField] private Image characterImage;
     [SerializeField] private Image hintHat;
     [SerializeField] private Image hintGlasses;
-    [SerializeField] private Image hintHijab;      // Replaced hintEarrings
+    //[SerializeField] private Image hintHijab;      // Replaced hintEarrings
+    [SerializeField] private Image hintEarrings;
     [SerializeField] private Image hintBeard;
     [SerializeField] private Image hintMustache;
     [SerializeField] private GameObject crossOutImage;
@@ -61,7 +61,8 @@ public class Cell : MonoBehaviour
 
         SetHintAlpha(hintHat, character.hasHat);
         SetHintAlpha(hintGlasses, character.hasGlasses);
-        SetHintAlpha(hintHijab, character.hasHijab);      // Updated for Arabic edition
+        //SetHintAlpha(hintHijab, character.hasHijab);      // Updated for Arabic edition
+        SetHintAlpha(hintEarrings, character.hasEarrings);
         SetHintAlpha(hintBeard, character.hasBeard);
         SetHintAlpha(hintMustache, character.hasMustache);
     }

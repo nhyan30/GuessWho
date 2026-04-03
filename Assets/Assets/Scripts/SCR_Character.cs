@@ -33,6 +33,7 @@ public class SCR_Character : ScriptableObject
     [Header("Accessories")]
     public bool hasHat;
     public bool hasGlasses;
+    public bool hasEarrings;
     [Tooltip("Hijab - If true, the character's hair is covered (Arabic Edition)")]
     public bool hasHijab;    // Replaced hasEarrings for Arabic edition
 

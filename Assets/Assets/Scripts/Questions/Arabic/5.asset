@@ -14,6 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   QuestionText: Does your character have a mustache?
   Category: 2
-  attributeToCheck: 6
+  attributeToCheck: 7
   expectedValue: 1
   targetHairColor: 0

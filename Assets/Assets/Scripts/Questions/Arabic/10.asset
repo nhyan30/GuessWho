@@ -14,6 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   QuestionText: Does your character have red hair?
   Category: 3
-  attributeToCheck: 7
+  attributeToCheck: 8
   expectedValue: 1
   targetHairColor: 2

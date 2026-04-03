@@ -24,6 +24,7 @@ public enum CharacterAttribute
     HasHat,
     HasGlasses,
     HasHijab,        // Replaced HasEarrings for Arabic edition
+    HasEarrings,
     HasBeard,
     HasMustache,
     HasHairColor
@@ -76,6 +77,7 @@ public class SCR_Question : ScriptableObject
             CharacterAttribute.HasHat => character.hasHat == expectedValue,
             CharacterAttribute.HasGlasses => character.hasGlasses == expectedValue,
             CharacterAttribute.HasHijab => character.hasHijab == expectedValue,
+            CharacterAttribute.HasEarrings => character.hasEarrings == expectedValue,
             CharacterAttribute.HasBeard => character.hasBeard == expectedValue,
             CharacterAttribute.HasMustache => character.hasMustache == expectedValue,
             CharacterAttribute.HasHairColor => character.hairColor == targetHairColor,

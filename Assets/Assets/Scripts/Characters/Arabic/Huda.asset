@@ -19,6 +19,7 @@ MonoBehaviour:
   hairColor: 1
   hasHat: 1
   hasGlasses: 1
+  hasEarrings: 0
   hasHijab: 1
   hasBeard: 0
   hasMustache: 0
