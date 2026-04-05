@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -9,6 +10,7 @@ using Networking;
 /// <summary>
 /// Controls the main menu with multiplayer support.
 /// Handles single player, hosting games, joining games, settings, and help.
+/// Uses circle wipe animation for page transitions.
 /// </summary>
 public class MainMenuController : MonoBehaviour
 {
@@ -24,12 +26,12 @@ public class MainMenuController : MonoBehaviour
     [SerializeField] private Button singlePlayerButton;
     [SerializeField] private Button HostGameButton;
     [SerializeField] private Button joinGameButton;
-    [SerializeField] private Button settingsButton;    // New: Settings button
-    [SerializeField] private Button helpButton;        // New: Help button
+    [SerializeField] private Button settingsButton;
+    [SerializeField] private Button helpButton;
 
     [Header("Panels")]
-    [SerializeField] private SettingsPanel settingsPanel;  // Reference to Settings panel
-    [SerializeField] private HelpPanel helpPanel;          // Reference to Help panel
+    [SerializeField] private SettingsPanel settingsPanel;
+    [SerializeField] private HelpPanel helpPanel;
 
     [Header("Find Game Panel")]
     [SerializeField] private TMP_Text roomCodeText;
@@ -47,12 +49,17 @@ public class MainMenuController : MonoBehaviour
     [Header("Game Reference")]
     [SerializeField] private GameManager gameManager;
 
+    [Header("Wipe Animation")]
+    [SerializeField] private WipeController wipeController;
+    [SerializeField] private bool useWipeAnimation = true;
+
     [Header("Settings")]
     [SerializeField] private float fadeDuration = 0.2f;
 
     // State
     public bool isMultiplayer = false;
     private Coroutine waitingCoroutine;
+    private bool isTransitioning = false;
 
     private void Awake()
     {
@@ -87,8 +94,8 @@ public class MainMenuController : MonoBehaviour
         }
 
         // Panels hidden
-        Fade(HostGamePanel, false);
-        Fade(joinGamePanel, false);
+        FadeImmediate(HostGamePanel, false);
+        FadeImmediate(joinGamePanel, false);
 
         // Clear error text
         if (joinErrorText != null)
@@ -107,7 +114,6 @@ public class MainMenuController : MonoBehaviour
         if (joinGameButton != null)
             joinGameButton.onClick.AddListener(OnJoinGameClicked);
 
-        // New: Settings and Help buttons
         if (settingsButton != null)
             settingsButton.onClick.AddListener(OnSettingsClicked);
 
@@ -143,13 +149,7 @@ public class MainMenuController : MonoBehaviour
         isMultiplayer = false;
         Debug.Log("[Menu] Starting single player game");
 
-        Fade(mainMenuCanvasGroup, false, () =>
-        {
-            Fade(gameCanvasGroup, true, () =>
-            {
-                gameManager?.BeginGame(GameMode.SinglePlayer);
-            });
-        });
+        TransitionToGameplay(GameMode.SinglePlayer);
     }
 
     private void OnFindGameClicked()
@@ -341,16 +341,10 @@ public class MainMenuController : MonoBehaviour
             waitingCoroutine = null;
         }
 
-        Fade(HostGamePanel, false);
-        Fade(joinGamePanel, false);
+        FadeImmediate(HostGamePanel, false);
+        FadeImmediate(joinGamePanel, false);
 
-        Fade(mainMenuCanvasGroup, false, () =>
-        {
-            Fade(gameCanvasGroup, true, () =>
-            {
-                gameManager?.BeginGame(GameMode.Multiplayer);
-            });
-        });
+        TransitionToGameplay(GameMode.Multiplayer);
     }
 
     private void OnNetworkError(string error)
@@ -381,7 +375,109 @@ public class MainMenuController : MonoBehaviour
 
     #endregion
 
+    #region Page Transitions with Wipe Animation
+
+    /// <summary>
+    /// Transitions from Main Menu to Gameplay with wipe animation.
+    /// </summary>
+    private void TransitionToGameplay(GameMode mode)
+    {
+        if (isTransitioning) return;
+        isTransitioning = true;
+
+        if (useWipeAnimation && wipeController != null)
+        {
+            // Use wipe animation transition
+            wipeController.PlayTransition(
+                onSwitchContent: () =>
+                {
+                    // Hide main menu, show gameplay
+                    SetCanvasGroupVisible(mainMenuCanvasGroup, false);
+                    SetCanvasGroupVisible(gameCanvasGroup, true);
+
+                    // Start the game
+                    gameManager?.BeginGame(mode);
+                },
+                onComplete: () =>
+                {
+                    isTransitioning = false;
+                }
+            );
+        }
+        else
+        {
+            // Fallback to fade transition
+            Fade(mainMenuCanvasGroup, false, () =>
+            {
+                Fade(gameCanvasGroup, true, () =>
+                {
+                    gameManager?.BeginGame(mode);
+                    isTransitioning = false;
+                });
+            });
+        }
+    }
+
+    /// <summary>
+    /// Returns to main menu from game with wipe animation.
+    /// Called by GameManager when returning to main menu.
+    /// </summary>
+    public void ReturnToMainMenu()
+    {
+        Debug.Log("[Menu] Returning to main menu");
+
+        if (isTransitioning)
+        {
+            // Force immediate transition if already transitioning
+            isTransitioning = false;
+        }
+
+        isMultiplayer = false;
+
+        if (NetworkManager.Instance != null && NetworkManager.Instance.IsConnected)
+        {
+            NetworkManager.Instance.LeaveRoom();
+        }
+
+        if (useWipeAnimation && wipeController != null)
+        {
+            // Use wipe animation transition
+            wipeController.PlayTransition(
+                onSwitchContent: () =>
+                {
+                    // Hide gameplay, show main menu
+                    SetCanvasGroupVisible(gameCanvasGroup, false);
+                    SetCanvasGroupVisible(mainMenuCanvasGroup, true);
+                },
+                onComplete: () =>
+                {
+                    isTransitioning = false;
+                }
+            );
+        }
+        else
+        {
+            // Fallback to fade transition
+            Fade(gameCanvasGroup, false, () =>
+            {
+                Fade(mainMenuCanvasGroup, true, null);
+                isTransitioning = false;
+            });
+        }
+    }
+
+    #endregion
+
     #region Fade Methods
+
+    private void SetCanvasGroupVisible(CanvasGroup canvasGroup, bool visible)
+    {
+        if (canvasGroup == null) return;
+
+        canvasGroup.alpha = visible ? 1f : 0f;
+        canvasGroup.blocksRaycasts = visible;
+        canvasGroup.interactable = visible;
+    }
 
     public void Fade(CanvasGroup canvasGroup, bool visible, UnityAction callback = null)
     {
@@ -397,31 +493,18 @@ public class MainMenuController : MonoBehaviour
             {
                 if (visible)
                     canvasGroup.blocksRaycasts = true;
+                    canvasGroup.interactable = true;
                 callback?.Invoke();
             });
     }
-    #endregion
 
-    #region Public Methods
-
-    /// <summary>
-    /// Returns to main menu from game.
-    /// </summary>
-    public void ReturnToMainMenu()
+    private void FadeImmediate(CanvasGroup canvasGroup, bool visible)
     {
-        Debug.Log("[Menu] Returning to main menu");
+        if (canvasGroup == null) return;
 
-        isMultiplayer = false;
-
-        if (NetworkManager.Instance != null && NetworkManager.Instance.IsConnected)
-        {
-            NetworkManager.Instance.LeaveRoom();
-        }
-
-        Fade(gameCanvasGroup, false, () =>
-        {
-            Fade(mainMenuCanvasGroup, true, null);
-        });
+        canvasGroup.alpha = visible ? 1f : 0f;
+        canvasGroup.blocksRaycasts = visible;
+        canvasGroup.interactable = visible;
     }
 
     #endregion
