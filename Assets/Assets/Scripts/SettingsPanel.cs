@@ -4,6 +4,8 @@ using UnityEngine.UI;
 
 /// <summary>
 /// Controls the Settings panel with volume sliders for Music and SFX.
+/// Supports both Main Menu and Gameplay contexts.
+/// In Gameplay context, shows an additional Return button to exit to Main Menu.
 /// </summary>
 public class SettingsPanel : MonoBehaviour
 {
@@ -14,6 +16,14 @@ public class SettingsPanel : MonoBehaviour
     [SerializeField] private TMP_Text musicVolumeText;
     [SerializeField] private TMP_Text sfxVolumeText;
     [SerializeField] private Button cancelButton;
+    [SerializeField] private Button returnButton;        // Return to Main Menu (for gameplay context)
+    [SerializeField] private GameObject returnButtonContainer;  // Container to show/hide return button
+
+    [Header("Context")]
+    [SerializeField] private bool isGameplayContext = false;  // Set to true for gameplay settings panel
+
+    // Events
+    public event System.Action OnReturnToMainMenu;
 
     private void Awake()
     {
@@ -39,6 +49,9 @@ public class SettingsPanel : MonoBehaviour
             }
         }
 
+        // Setup return button visibility based on context
+        UpdateReturnButtonVisibility();
+
         // Start hidden
         Hide();
     }
@@ -61,6 +74,11 @@ public class SettingsPanel : MonoBehaviour
         if (cancelButton != null)
         {
             cancelButton.onClick.AddListener(OnCancelClicked);
+        }
+
+        if (returnButton != null)
+        {
+            returnButton.onClick.AddListener(OnReturnClicked);
         }
     }
 
@@ -116,7 +134,21 @@ public class SettingsPanel : MonoBehaviour
     {
         AudioManager.Instance?.PlayButtonClick();
         Hide();
-        MainMenuController.Instance.Fade(settingsPanel, false);
+    }
+
+    private void OnReturnClicked()
+    {
+        AudioManager.Instance?.PlayButtonClick();
+        Hide();
+
+        // Notify listeners that player wants to return to main menu
+        OnReturnToMainMenu?.Invoke();
+
+        // Direct call to GameManager if available
+        if (isGameplayContext && GameManager.Instance != null)
+        {
+            GameManager.Instance.ReturnToMainMenu();
+        }
     }
 
     #endregion
@@ -127,8 +159,9 @@ public class SettingsPanel : MonoBehaviour
     {
         if (settingsPanel != null)
         {
-            //settingsPanel.SetActive(true);
-            MainMenuController.Instance.Fade(settingsPanel, true);
+            settingsPanel.alpha = 1f;
+            settingsPanel.blocksRaycasts = true;
+            settingsPanel.interactable = true;
         }
 
         // Refresh slider values
@@ -143,21 +176,42 @@ public class SettingsPanel : MonoBehaviour
                 sfxVolumeSlider.value = AudioManager.Instance.GetSFXVolume();
             }
         }
+
+        // Update return button visibility
+        UpdateReturnButtonVisibility();
     }
 
     public void Hide()
     {
         if (settingsPanel != null)
         {
-            //settingsPanel.SetActive(false);
-            MainMenuController.Instance.Fade(settingsPanel, false);
+            settingsPanel.alpha = 0f;
+            settingsPanel.blocksRaycasts = false;
+            settingsPanel.interactable = false;
         }
     }
 
-    //public bool IsVisible()
-    //{
-    //    return settingsPanel != null && settingsPanel.activeSelf;
-    //}
+    /// <summary>
+    /// Sets whether this panel is in gameplay context.
+    /// In gameplay context, the Return button will be visible.
+    /// </summary>
+    public void SetGameplayContext(bool isGameplay)
+    {
+        isGameplayContext = isGameplay;
+        UpdateReturnButtonVisibility();
+    }
+
+    private void UpdateReturnButtonVisibility()
+    {
+        if (returnButtonContainer != null)
+        {
+            returnButtonContainer.SetActive(isGameplayContext);
+        }
+        else if (returnButton != null)
+        {
+            returnButton.gameObject.SetActive(isGameplayContext);
+        }
+    }
 
     #endregion
 }
